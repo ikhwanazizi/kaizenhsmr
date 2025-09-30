@@ -41,9 +41,55 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 2. Redirect to dashboard if user is authenticated and trying to access login page
+  // 2. If user has a session, check their status and role in the profiles table
+  if (session && pathname.startsWith("/admin")) {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("status, role")
+      .eq("id", session.user.id)
+      .single();
+
+    console.log("USER PROFILE STATUS:", profile?.status);
+    console.log("USER PROFILE ROLE:", profile?.role);
+
+    // If user is not active, sign them out and redirect to login
+    if (error || !profile || profile.status !== "active") {
+      // Sign out the user
+      await supabase.auth.signOut();
+
+      // Clear all cookies
+      const response = NextResponse.redirect(new URL("/login", req.url));
+      response.cookies.delete("sb-access-token");
+      response.cookies.delete("sb-refresh-token");
+
+      return response;
+    }
+
+    // Check role-based access for /admin/users path
+    if (pathname.startsWith("/admin/users")) {
+      if (profile.role !== "super_admin") {
+        // Redirect non-super_admin users to dashboard
+        return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+      }
+    }
+  }
+
+  // 3. Redirect to dashboard if user is authenticated and trying to access login page
   if (session && pathname === "/login") {
-    return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+    // Still check status before redirecting
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", session.user.id)
+      .single();
+
+    if (profile?.status === "active") {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+    } else {
+      // Sign out inactive/suspended users
+      await supabase.auth.signOut();
+      return res;
+    }
   }
 
   return res;

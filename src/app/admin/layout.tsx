@@ -1,26 +1,32 @@
+"use client";
+
+import { useState } from "react";
 import AdminNavbar from "@/components/admin/AdminNavbar";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 
-// NOTE: I've removed the Metadata, fonts, and global CSS import.
-// Those should only be in your root layout (src/app/layout.tsx).
-
-// It's good practice to name the layout function based on its purpose.
 export default function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    // The layout should start with a div or fragment, not <html>.
-    <div>
-      <AdminNavbar />
-      <div style={{ display: "flex" }}>
-        {/* TODO: This is where you will add your AdminSidebar component later */}
-        <AdminSidebar />
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-        <main style={{ flexGrow: 1, padding: "1rem" }}>
-          {children} {/* This is where your page content will be rendered */}
-        </main>
+  return (
+    // Main container now stacks vertically
+    <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900">
+      {/* Navbar is now a direct child, it will be full-width by default */}
+      <AdminNavbar onMenuClick={() => setIsSidebarOpen(true)} />
+
+      {/* New container for the content area below the navbar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* The Sidebar is inside the new container */}
+        <AdminSidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
+
+        {/* The main content area is also inside the new container */}
+        <main className="flex-1 p-4 overflow-y-auto md:p-6">{children}</main>
       </div>
     </div>
   );

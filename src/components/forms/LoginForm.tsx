@@ -17,7 +17,7 @@ export default function LoginForm() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null); // Clear previous errors
+    setError(null);
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -25,11 +25,41 @@ export default function LoginForm() {
     });
 
     if (error) {
-      setError(error.message);
+      if (error.message === "User is banned") {
+        // --- THIS IS THE UPDATED LOGIC ---
+        // Instead of querying the table, we call our new secure function
+        const { data: status, error: rpcError } = await supabase.rpc(
+          "get_user_status_by_email",
+          { _email: email }
+        );
+
+        if (rpcError) {
+          // If the function fails for some reason, show the default
+          setError("Your account is disabled. Please contact support.");
+          return;
+        }
+
+        switch (status) {
+          case "inactive":
+            setError(
+              "This account has been deactivated. If you think this is a mistake, reach out to support."
+            );
+            break;
+          case "suspended":
+            setError(
+              "This account is temporarily suspended. Please reach out to our team for more details."
+            );
+            break;
+          default:
+            setError("Your account is disabled. Please contact support.");
+            break;
+        }
+      } else {
+        setError(error.message);
+      }
     } else {
-      // On successful login, redirect to the admin dashboard
       router.push("/admin/dashboard");
-      router.refresh(); // Refresh the page to update server components and middleware
+      router.refresh();
     }
   };
 
