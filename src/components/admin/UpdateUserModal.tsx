@@ -50,7 +50,7 @@ export default function UpdateUserModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md p-6 bg-white rounded-lg">
+      <div className="w-full max-w-md p-6 bg-white rounded-lg text-gray-600">
         <h2 className="mb-4 text-xl font-bold">
           Edit User: {userToUpdate.full_name || userToUpdate.email}
         </h2>
@@ -129,7 +129,7 @@ export default function UpdateUserModal({
             </p>
           )}
 
-          <div className="pt-4 border-t flex justify-between items-center">
+          <div className="pt-4 flex justify-between items-center">
             <button
               type="button"
               onClick={handlePasswordReset}
