@@ -1,5 +1,5 @@
+// src/app/admin/users/page.tsx - Updated table section
 "use client";
-
 import { useEffect, useState, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { PlusCircle } from "lucide-react";
@@ -10,7 +10,6 @@ import { type UserProfile } from "@/types/user";
 import { deleteUser } from "./actions";
 import { useRouter } from "next/navigation";
 
-// Helper component for styling status badges
 const StatusBadge = ({ status }: { status: string | null }) => {
   const baseClasses = "px-2 py-1 text-xs font-semibold rounded-full";
   switch (status) {
@@ -49,16 +48,13 @@ export default function UserManagementPage() {
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const router = useRouter();
 
-  // State for modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  // State to hold the user being acted upon
   const [userToUpdate, setUserToUpdate] = useState<UserProfile | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
 
-  // State for async operations
   const [isDeleting, setIsDeleting] = useState(false);
 
   const supabase = createBrowserClient(
@@ -68,7 +64,6 @@ export default function UserManagementPage() {
 
   const fetchUsers = useCallback(async () => {
     const { data, error } = await supabase.rpc("get_all_users_with_profiles");
-
     if (error) {
       setError(
         "Could not fetch user data. You may not have the required permissions."
@@ -87,15 +82,12 @@ export default function UserManagementPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (!user) {
         router.push("/login");
         return;
       }
-
       setCurrentUserId(user.id);
 
-      // Fetch the current user's profile to check their role
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
@@ -108,7 +100,6 @@ export default function UserManagementPage() {
         return;
       }
 
-      // Check if user is super_admin
       if (profile.role !== "super_admin") {
         setError(
           "Access Denied. Only super administrators can access this page."
@@ -120,10 +111,10 @@ export default function UserManagementPage() {
       setCurrentUserRole(profile.role);
       await fetchUsers();
     };
+
     initializePage();
   }, [fetchUsers, supabase.auth, supabase, router]);
 
-  // Handlers for opening modals
   const handleOpenUpdateModal = (user: UserProfile) => {
     setUserToUpdate(user);
     setIsUpdateModalOpen(true);
@@ -136,16 +127,13 @@ export default function UserManagementPage() {
 
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return;
-
     setIsDeleting(true);
     const result = await deleteUser(userToDelete.id);
-
     if (result.success) {
-      fetchUsers(); // Refresh the user list
+      fetchUsers();
     } else {
       alert(`Failed to delete user: ${result.message}`);
     }
-
     setIsDeleting(false);
     setIsDeleteModalOpen(false);
     setUserToDelete(null);
@@ -153,7 +141,6 @@ export default function UserManagementPage() {
 
   if (loading) return <p className="p-4">Loading users...</p>;
 
-  // Show error page if user doesn't have permission
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen p-4">
@@ -228,7 +215,10 @@ export default function UserManagementPage() {
                 Status
               </th>
               <th scope="col" className="px-6 py-3">
-                Last Sign In
+                Created By
+              </th>
+              <th scope="col" className="px-6 py-3">
+                Last Login
               </th>
               <th scope="col" className="px-6 py-3">
                 <span className="sr-only">Actions</span>
@@ -250,6 +240,9 @@ export default function UserManagementPage() {
                   <StatusBadge status={user.status} />
                 </td>
                 <td className="px-6 py-4">
+                  {user.created_by_name || "System"}
+                </td>
+                <td className="px-6 py-4">
                   {user.last_sign_in_at
                     ? new Date(user.last_sign_in_at).toLocaleString()
                     : "Never"}
@@ -261,7 +254,6 @@ export default function UserManagementPage() {
                   >
                     Edit
                   </button>
-
                   {user.id !== currentUserId && (
                     <button
                       onClick={() => handleOpenDeleteModal(user)}

@@ -1,3 +1,4 @@
+// src/app/admin/users/actions.ts
 "use server";
 
 import { createServerClient } from "@supabase/ssr";
@@ -55,7 +56,7 @@ async function checkSuperAdminAccess() {
   return { authorized: true, userId: user.id };
 }
 
-// create the new user function
+// Create the new user function
 export async function createUser(formData: FormData) {
   // Check authorization first
   const authCheck = await checkSuperAdminAccess();
@@ -71,7 +72,7 @@ export async function createUser(formData: FormData) {
   const role = formData.get("role") as string;
   const status = formData.get("status") as string;
 
-  // create the new user
+  // Create the new user
   const { data: authData, error: authError } =
     await supabase.auth.admin.createUser({
       email: email,
@@ -86,11 +87,15 @@ export async function createUser(formData: FormData) {
     return { success: false, message: authError.message };
   }
 
-  // The trigger already created a profile, now we update it
+  // The trigger already created a profile, now we update it with role, status, and created_by
   if (authData.user) {
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ role: role, status: status })
+      .update({
+        role: role,
+        status: status,
+        created_by: authCheck.userId, // ← Track who created the user
+      })
       .eq("id", authData.user.id);
 
     if (profileError) {
@@ -157,6 +162,7 @@ export async function updateUser(formData: FormData) {
       .from("profiles")
       .select("*", { count: "exact" })
       .eq("role", "super_admin");
+
     if (count === 1 && role !== "super_admin") {
       return { success: false, message: "Cannot demote the last super admin." };
     }

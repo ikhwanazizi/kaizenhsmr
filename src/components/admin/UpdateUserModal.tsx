@@ -1,3 +1,4 @@
+// src/components/admin/UpdateUserModal.tsx
 "use client";
 
 import { updateUser, resetUserPassword } from "@/app/admin/users/actions";

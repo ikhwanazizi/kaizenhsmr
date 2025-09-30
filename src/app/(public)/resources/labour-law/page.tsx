@@ -1,7 +1,7 @@
 import React from "react";
 
-const page = () => {
+const LabourLaw = () => {
   return <div>labour-law</div>;
 };
 
-export default page;
+export default LabourLaw;
