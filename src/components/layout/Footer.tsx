@@ -1,20 +1,67 @@
-import React from "react";
+// src/components/layout/Footer.tsx
+
+"use client"; // This component now needs client-side interactivity
+
+import React, { useState, FormEvent } from "react";
 import Link from "next/link";
 import {
   hrmsSubmenus,
   resourcesSubmenus,
   companySubmenus,
 } from "@/data/submenus";
-
-import { Facebook, Linkedin, Apple, Send } from "lucide-react";
+import { Facebook, Linkedin, Apple, Send, Loader2 } from "lucide-react";
 
 const Footer = () => {
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isError, setIsError] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setMessage("");
+    setIsError(false);
+
+    if (!email) {
+      setMessage("Email address is required.");
+      setIsError(true);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/newsletter/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Something went wrong.");
+      }
+
+      setMessage(data.message);
+      setIsError(false);
+      setEmail(""); // Clear input on success
+    } catch (error: any) {
+      setMessage(error.message);
+      setIsError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <footer className="bg-[#008080] text-white">
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
         {/* TOP SECTION: LINKS */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-x-8 gap-y-10 mb-12">
-          {/* Company Info - Now spans full width on tablets */}
+          {/* Company Info */}
           <div className="col-span-2 sm:col-span-2 lg:col-span-1">
             <h2 className="text-2xl font-bold mb-4">Kaizen</h2>
             <p className="text-blue-200">
@@ -22,7 +69,7 @@ const Footer = () => {
             </p>
           </div>
 
-          {/* HRMS Links - Will now appear below Kaizen info on small/tablet screens */}
+          {/* HRMS Links */}
           <div className="sm:col-span-1 lg:col-span-2">
             <h3 className="text-lg font-semibold mb-4">HRMS</h3>
             <ul className="space-y-2 text-blue-200 md:columns-2">
@@ -40,7 +87,7 @@ const Footer = () => {
           </div>
 
           <div className="flex flex-col gap-y-12 lg:contents">
-            {/* Resources - Becomes a grid item on its own on large screens */}
+            {/* Resources */}
             <div className="lg:col-span-1">
               <h3 className="text-lg font-semibold mb-4">Resources</h3>
               <ul className="space-y-2 text-blue-200">
@@ -57,7 +104,7 @@ const Footer = () => {
               </ul>
             </div>
 
-            {/* Company - Becomes a grid item on its own on large screens */}
+            {/* Company */}
             <div className="lg:col-span-1">
               <h3 className="text-lg font-semibold mb-4">Company</h3>
               <ul className="space-y-2 text-blue-200">
@@ -79,27 +126,49 @@ const Footer = () => {
         {/* BORDER */}
         <div className="border-t border-white/20"></div>
 
-        {/* BOTTOM SECTION: ACTIONS (No changes here) */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-8 pt-12 items-top">
+        {/* BOTTOM SECTION: ACTIONS */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-8 pt-12 items-start">
           {/* Newsletter */}
           <div>
             <h3 className="text-lg font-semibold mb-4">
               Subscribe to Kaizen's Newsletter
             </h3>
-            <div className="flex bg-[#525861] rounded-lg overflow-hidden">
-              <input
-                type="email"
-                placeholder="Your business email"
-                className="w-full bg-transparent px-4 py-3 text-white placeholder-gray-400 focus:outline-none"
-              />
-              <button className="bg-[#4a4f57] hover:bg-gray-500 text-white px-5 py-3 transition-colors">
-                <Send size={20} />
-              </button>
-            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="flex bg-[#525861] rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-yellow-400">
+                <input
+                  type="email"
+                  placeholder="Your business email"
+                  className="w-full bg-transparent px-4 py-3 text-white placeholder-gray-400 focus:outline-none"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                />
+                <button
+                  type="submit"
+                  className="bg-[#4a4f57] hover:bg-gray-500 text-white px-5 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="animate-spin" size={20} />
+                  ) : (
+                    <Send size={20} />
+                  )}
+                </button>
+              </div>
+            </form>
+            {message && (
+              <p
+                className={`mt-2 text-sm ${
+                  isError ? "text-red-400" : "text-green-300"
+                }`}
+              >
+                {message}
+              </p>
+            )}
           </div>
 
-          {/* Social Media */}
-          <div className="flex flex-col justify-end  md:justify-start text-center">
+          {/* Social Media -- THIS SECTION IS NOW RESTORED */}
+          <div className="flex flex-col justify-end md:justify-start text-center">
             <h3 className="text-lg font-semibold mb-4">Follow us</h3>
             <div className="flex space-x-4 justify-center">
               <a
@@ -119,12 +188,11 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Mobile App Downloads */}
+          {/* Mobile App Downloads -- THIS SECTION IS NOW RESTORED */}
           <div className="col-span-2 md:col-span-1">
             <h3 className="text-lg font-semibold mb-4">
               Download the Mobile App
             </h3>
-            {/* inner grid for equal width buttons */}
             <div className="grid grid-cols-2 gap-4">
               <a
                 href="#"

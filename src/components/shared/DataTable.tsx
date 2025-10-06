@@ -1,4 +1,3 @@
-// src/components/shared/DataTable.tsx
 "use client";
 
 import { useState, useMemo } from "react";
@@ -21,6 +20,7 @@ type DataTableProps<T> = {
   itemsPerPage?: number;
   onRowClick?: (item: T) => void;
   actions?: (item: T) => React.ReactNode;
+  actionsLabel?: string; // Added new prop
   emptyMessage?: string;
   className?: string;
   headerActions?: React.ReactNode;
@@ -35,6 +35,7 @@ export default function DataTable<T extends Record<string, any>>({
   itemsPerPage = 10,
   onRowClick,
   actions,
+  actionsLabel = "Actions", // Default label
   emptyMessage = "No data available",
   className = "",
   headerActions,
@@ -46,7 +47,7 @@ export default function DataTable<T extends Record<string, any>>({
   } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Handle sorting
+  // Sorting logic
   const handleSort = (key: string) => {
     let direction: "asc" | "desc" = "asc";
     if (sortConfig?.key === key && sortConfig.direction === "asc") {
@@ -55,10 +56,9 @@ export default function DataTable<T extends Record<string, any>>({
     setSortConfig({ key, direction });
   };
 
-  // Filter data based on search
+  // Filtering logic
   const filteredData = useMemo(() => {
     if (!searchable || !searchTerm) return data;
-
     return data.filter((item) =>
       searchKeys.some((key) => {
         const value = item[key];
@@ -68,30 +68,24 @@ export default function DataTable<T extends Record<string, any>>({
     );
   }, [data, searchTerm, searchable, searchKeys]);
 
-  // Sort data
+  // Sorting after filtering
   const sortedData = useMemo(() => {
     if (!sortConfig) return filteredData;
 
-    const sorted = [...filteredData].sort((a, b) => {
+    return [...filteredData].sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
 
       if (aValue == null) return 1;
       if (bValue == null) return -1;
 
-      if (aValue < bValue) {
-        return sortConfig.direction === "asc" ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return sortConfig.direction === "asc" ? 1 : -1;
-      }
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
-
-    return sorted;
   }, [filteredData, sortConfig]);
 
-  // Paginate data
+  // Pagination logic
   const paginatedData = useMemo(() => {
     if (!pagination) return sortedData;
 
@@ -102,19 +96,17 @@ export default function DataTable<T extends Record<string, any>>({
 
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
-  // Reset to page 1 when search term or data changes
+  // Reset to page 1 when search or data changes
   useMemo(() => {
     setCurrentPage(1);
   }, [searchTerm, data]);
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Header with Actions and Search */}
+      {/* Header: actions + search */}
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        {/* Left side - Header Actions (e.g., Create button) */}
         <div className="flex-shrink-0">{headerActions}</div>
 
-        {/* Right side - Search Bar */}
         {searchable && (
           <div className="relative w-full md:max-w-xs">
             <Search
@@ -175,13 +167,16 @@ export default function DataTable<T extends Record<string, any>>({
                   </div>
                 </th>
               ))}
+
+              {/* Actions column with label */}
               {actions && (
-                <th scope="col" className="px-6 py-4">
-                  <span className="sr-only">Actions</span>
+                <th scope="col" className="px-6 py-4 font-medium text-right">
+                  <span>{actionsLabel}</span>
                 </th>
               )}
             </tr>
           </thead>
+
           <tbody>
             {paginatedData.length === 0 ? (
               <tr>
@@ -213,6 +208,7 @@ export default function DataTable<T extends Record<string, any>>({
                         : item[column.key] || "N/A"}
                     </td>
                   ))}
+
                   {actions && (
                     <td className="px-6 py-4">
                       <div
@@ -248,6 +244,7 @@ export default function DataTable<T extends Record<string, any>>({
             </span>{" "}
             results
           </div>
+
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
@@ -256,10 +253,10 @@ export default function DataTable<T extends Record<string, any>>({
             >
               Previous
             </button>
+
             <div className="items-center hidden space-x-1 md:flex">
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter((page) => {
-                  // Show first page, last page, current page, and pages around current
                   return (
                     page === 1 ||
                     page === totalPages ||
@@ -284,6 +281,7 @@ export default function DataTable<T extends Record<string, any>>({
                   </div>
                 ))}
             </div>
+
             <button
               onClick={() =>
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))

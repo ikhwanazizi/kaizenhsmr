@@ -3,10 +3,9 @@
 
 import { useState, useEffect } from "react";
 import { Lock, Eye, EyeOff } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr"; // ✅ Import Supabase client
 import Toast from "@/components/shared/Toast";
 import { changePassword } from "./actions";
+import { createBrowserClient } from "@supabase/ssr";
 
 export default function ChangePassword() {
   const [oldPassword, setOldPassword] = useState("");
@@ -19,16 +18,14 @@ export default function ChangePassword() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [passwordMatch, setPasswordMatch] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [countdown, setCountdown] = useState(10);
+  const [countdown, setCountdown] = useState(5);
   const [toast, setToast] = useState<{
     show: boolean;
     message: string;
     type: "success" | "error";
   }>({ show: false, message: "", type: "success" });
 
-  const router = useRouter();
-
-  // Create Supabase client (browser)
+  // Create Supabase browser client
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -42,18 +39,10 @@ export default function ChangePassword() {
     }
 
     const errors: string[] = [];
-    if (newPassword.length < 8) {
-      errors.push("At least 8 characters");
-    }
-    if (!/[A-Z]/.test(newPassword)) {
-      errors.push("One uppercase letter");
-    }
-    if (!/[a-z]/.test(newPassword)) {
-      errors.push("One lowercase letter");
-    }
-    if (!/[0-9]/.test(newPassword)) {
-      errors.push("One number");
-    }
+    if (newPassword.length < 8) errors.push("At least 8 characters");
+    if (!/[A-Z]/.test(newPassword)) errors.push("One uppercase letter");
+    if (!/[a-z]/.test(newPassword)) errors.push("One lowercase letter");
+    if (!/[0-9]/.test(newPassword)) errors.push("One number");
 
     setValidationErrors(errors);
   }, [newPassword]);
@@ -73,7 +62,7 @@ export default function ChangePassword() {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     } else if (showSuccessModal && countdown === 0) {
-      window.location.assign("/login"); // ✅ redirect cleanly
+      handleSkipToLogin();
     }
   }, [showSuccessModal, countdown]);
 
@@ -86,27 +75,29 @@ export default function ChangePassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!isFormValid) return;
-
     setIsSubmitting(true);
 
     const result = await changePassword(oldPassword, newPassword);
 
     if (result.success) {
-      // ✅ Sign out user immediately so middleware won’t bounce them back
-      await supabase.auth.signOut();
-
       setShowSuccessModal(true);
     } else {
-      setToast({
-        show: true,
-        message: result.message,
-        type: "error",
-      });
+      setToast({ show: true, message: result.message, type: "error" });
+      setIsSubmitting(false);
     }
+  };
 
-    setIsSubmitting(false);
+  const handleSkipToLogin = async () => {
+    // Explicitly clear Supabase session on the client
+    await supabase.auth.signOut();
+
+    // Clear browser storage just in case
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // Redirect to login
+    window.location.href = "/login?refresh=true";
   };
 
   // Success Modal
@@ -131,9 +122,8 @@ export default function ChangePassword() {
             Redirecting in {countdown} seconds...
           </p>
 
-          {/* ✅ Skip button - goes to login immediately */}
           <button
-            onClick={() => window.location.assign("/login")}
+            onClick={handleSkipToLogin}
             className="w-full px-4 py-2.5 text-sm font-semibold text-blue-600 bg-blue-100 rounded-lg hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
             Go to Login Now
