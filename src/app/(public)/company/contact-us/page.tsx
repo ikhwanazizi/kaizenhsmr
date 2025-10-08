@@ -1,17 +1,35 @@
+// src/app/(public)/company/contact-us/page.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   MapPin,
   Mail,
   Phone,
   Send,
-  Building,
-  Users,
-  MessageCircle,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+
+declare global {
+  interface Window {
+    turnstile: {
+      render: (
+        element: string | HTMLElement,
+        options: {
+          sitekey: string;
+          callback: (token: string) => void;
+          "error-callback": () => void;
+          "expired-callback": () => void;
+        }
+      ) => string;
+      reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
 
 const ContactUsPage = () => {
   const [formData, setFormData] = useState({
@@ -23,17 +41,135 @@ const ContactUsPage = () => {
     message: "",
   });
 
-  const handleInputChange = (e) => {
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<{
+    type: "success" | "error" | null;
+    message: string;
+  }>({ type: null, message: "" });
+
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  // Load Turnstile script
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  // Handle Turnstile events
+  useEffect(() => {
+    const handleSuccess = (e: any) => {
+      setCaptchaToken(e.detail);
+    };
+
+    const handleError = () => {
+      setCaptchaToken(null);
+      setSubmitStatus({
+        type: "error",
+        message: "Captcha verification failed. Please try again.",
+      });
+    };
+
+    const handleExpired = () => {
+      setCaptchaToken(null);
+    };
+
+    window.addEventListener("turnstile-success", handleSuccess);
+    window.addEventListener("turnstile-error", handleError);
+    window.addEventListener("turnstile-expired", handleExpired);
+
+    return () => {
+      window.removeEventListener("turnstile-success", handleSuccess);
+      window.removeEventListener("turnstile-error", handleError);
+      window.removeEventListener("turnstile-expired", handleExpired);
+    };
+  }, []);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
-    // You can add your form submission logic here (e.g., send data to an API)
+    setSubmitStatus({ type: null, message: "" });
+
+    if (!captchaToken) {
+      setSubmitStatus({
+        type: "error",
+        message: "Please complete the captcha verification",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          formData,
+          captchaToken,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to submit form");
+      }
+
+      setSubmitStatus({
+        type: "success",
+        message:
+          "Thank you! Your message has been sent successfully. We'll get back to you soon.",
+      });
+
+      // Reset form
+      setFormData({
+        fullName: "",
+        contactNumber: "",
+        company: "",
+        email: "",
+        companySize: "",
+        message: "",
+      });
+
+      // Reset captcha
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.reset(widgetIdRef.current);
+      }
+      setCaptchaToken(null);
+
+      // Scroll to top to show success message
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error: any) {
+      setSubmitStatus({
+        type: "error",
+        message: error.message || "Something went wrong. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -57,6 +193,32 @@ const ContactUsPage = () => {
 
         {/* Main Content */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          {/* Status Message */}
+          {submitStatus.type && (
+            <div
+              className={`mb-8 p-4 rounded-lg flex items-start gap-3 ${
+                submitStatus.type === "success"
+                  ? "bg-green-50 border border-green-200"
+                  : "bg-red-50 border border-red-200"
+              }`}
+            >
+              {submitStatus.type === "success" ? (
+                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              )}
+              <p
+                className={`text-sm ${
+                  submitStatus.type === "success"
+                    ? "text-green-800"
+                    : "text-red-800"
+                }`}
+              >
+                {submitStatus.message}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
             {/* Left Column: Contact Info & Map */}
             <div className="space-y-10">
@@ -128,7 +290,7 @@ const ContactUsPage = () => {
                   width="100%"
                   height="350"
                   style={{ border: 0 }}
-                  allowFullScreen=""
+                  allowFullScreen={true}
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   className="rounded-2xl shadow-lg border border-gray-200"
@@ -163,7 +325,8 @@ const ContactUsPage = () => {
                       value={formData.fullName}
                       onChange={handleInputChange}
                       required
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300"
+                      disabled={isSubmitting}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
                       placeholder="Enter your full name"
                     />
                   </div>
@@ -178,7 +341,8 @@ const ContactUsPage = () => {
                       value={formData.contactNumber}
                       onChange={handleInputChange}
                       required
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300"
+                      disabled={isSubmitting}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
                       placeholder="+60 12-345 6789"
                     />
                   </div>
@@ -196,7 +360,8 @@ const ContactUsPage = () => {
                       value={formData.company}
                       onChange={handleInputChange}
                       required
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300"
+                      disabled={isSubmitting}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
                       placeholder="Your company name"
                     />
                   </div>
@@ -211,7 +376,8 @@ const ContactUsPage = () => {
                       value={formData.email}
                       onChange={handleInputChange}
                       required
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300"
+                      disabled={isSubmitting}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
                       placeholder="your.email@company.com"
                     />
                   </div>
@@ -227,7 +393,8 @@ const ContactUsPage = () => {
                     value={formData.companySize}
                     onChange={handleInputChange}
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300"
+                    disabled={isSubmitting}
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
                   >
                     <option value="">Select company size</option>
                     <option value="1-50">1-50 employees</option>
@@ -251,17 +418,59 @@ const ContactUsPage = () => {
                     value={formData.message}
                     onChange={handleInputChange}
                     rows={5}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 resize-none"
+                    disabled={isSubmitting}
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 resize-none disabled:bg-gray-50 disabled:cursor-not-allowed"
                     placeholder="Tell us about your HR needs..."
                   />
                 </div>
 
+                {/* Cloudflare Turnstile */}
+                <div className="flex justify-center">
+                  <div
+                    ref={turnstileRef}
+                    className="cf-turnstile"
+                    data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                    data-callback="onTurnstileSuccess"
+                    data-error-callback="onTurnstileError"
+                    data-expired-callback="onTurnstileExpired"
+                  ></div>
+                </div>
+
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-8 rounded-xl font-semibold shadow-lg hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2"
+                  disabled={isSubmitting || !captchaToken}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-8 rounded-xl font-semibold shadow-lg hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  <Send className="w-5 h-5" />
-                  Send Message
+                  {isSubmitting ? (
+                    <>
+                      <svg
+                        className="animate-spin h-5 w-5"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Send Message
+                    </>
+                  )}
                 </button>
 
                 <p className="text-sm text-gray-500 text-center">
@@ -278,6 +487,23 @@ const ContactUsPage = () => {
       </main>
 
       <Footer />
+
+      {/* Turnstile Callbacks */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            window.onTurnstileSuccess = function(token) {
+              window.dispatchEvent(new CustomEvent('turnstile-success', { detail: token }));
+            };
+            window.onTurnstileError = function() {
+              window.dispatchEvent(new CustomEvent('turnstile-error'));
+            };
+            window.onTurnstileExpired = function() {
+              window.dispatchEvent(new CustomEvent('turnstile-expired'));
+            };
+          `,
+        }}
+      />
     </div>
   );
 };
