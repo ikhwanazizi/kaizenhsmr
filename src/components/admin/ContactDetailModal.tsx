@@ -10,13 +10,10 @@ import {
   Calendar,
   MessageCircle,
   Send,
-  Copy,
-  Star,
-  StickyNote,
-  Clock,
+  ExternalLink,
+  History,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import RichTextEditor from "./RichTextEditor";
 
 type Contact = {
   id: string;
@@ -28,16 +25,13 @@ type Contact = {
   message: string;
   status: string;
   created_at: string;
-  is_starred: boolean;
   last_reply_at?: string | null;
 };
 
-type Interaction = {
+type Reply = {
   id: string;
-  interaction_type: string;
-  content?: string | null;
-  old_value?: string | null;
-  new_value?: string | null;
+  reply_message: string;
+  reply_method: string;
   created_at: string;
   profiles: {
     full_name: string;
@@ -63,14 +57,9 @@ export default function ContactDetailModal({
   const [replyMessage, setReplyMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
-  const [showNoteForm, setShowNoteForm] = useState(false);
-  const [noteContent, setNoteContent] = useState("");
-  const [interactions, setInteractions] = useState<Interaction[]>([]);
-  const [loadingInteractions, setLoadingInteractions] = useState(false);
-  const [showAllInteractions, setShowAllInteractions] = useState(false);
-  const [isStarred, setIsStarred] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState("");
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [replies, setReplies] = useState<Reply[]>([]);
+  const [loadingReplies, setLoadingReplies] = useState(false);
+  const [showAllReplies, setShowAllReplies] = useState(false);
 
   // Close modal on ESC key
   useEffect(() => {
@@ -87,32 +76,30 @@ export default function ContactDetailModal({
     };
   }, [isOpen, onClose]);
 
-  // Fetch interactions when modal opens
+  // Fetch replies when modal opens
   useEffect(() => {
     if (isOpen && contact) {
-      setIsStarred(contact.is_starred);
-      setSelectedStatus(contact.status);
-      fetchInteractions();
+      fetchReplies();
     }
   }, [isOpen, contact]);
 
-  const fetchInteractions = async () => {
+  const fetchReplies = async () => {
     if (!contact) return;
 
-    setLoadingInteractions(true);
+    setLoadingReplies(true);
     try {
       const response = await fetch(
-        `/api/admin/contacts/interactions?contactId=${contact.id}`
+        `/api/admin/contacts/reply?contactId=${contact.id}`
       );
       const data = await response.json();
 
       if (response.ok) {
-        setInteractions(data.interactions || []);
+        setReplies(data.replies || []);
       }
     } catch (error) {
-      console.error("Error fetching interactions:", error);
+      console.error("Error fetching replies:", error);
     } finally {
-      setLoadingInteractions(false);
+      setLoadingReplies(false);
     }
   };
 
@@ -137,7 +124,7 @@ export default function ContactDetailModal({
         alert("Reply sent successfully!");
         setReplyMessage("");
         setShowReplyForm(false);
-        fetchInteractions();
+        fetchReplies();
         onRefresh();
       } else {
         alert(data.error || "Failed to send reply");
@@ -150,30 +137,31 @@ export default function ContactDetailModal({
     }
   };
 
-  const handleCopyEmail = async () => {
+  const handleEmailClientReply = () => {
     if (!contact) return;
 
-    try {
-      await navigator.clipboard.writeText(contact.business_email);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
+    const subject = encodeURIComponent("Re: Your KaizenHR Inquiry");
+    const body = encodeURIComponent(
+      `Dear ${contact.full_name},\n\nThank you for contacting KaizenHR.\n\n\n\nBest regards,\nKaizenHR Team`
+    );
 
-      // Prompt for logging reply
-      setTimeout(() => {
-        const note = prompt(
-          "Please enter a brief note about your reply for tracking purposes:"
-        );
-        if (note && note.trim()) {
-          logEmailClientReply(note.trim());
-        }
-      }, 500);
-    } catch (error) {
-      console.error("Failed to copy email:", error);
-      alert("Failed to copy email address");
-    }
+    window.open(
+      `mailto:${contact.business_email}?subject=${subject}&body=${body}`,
+      "_blank"
+    );
+
+    // Prompt to log the reply
+    setTimeout(() => {
+      const note = prompt(
+        "Please enter a brief note about your reply for tracking purposes:"
+      );
+      if (note && note.trim()) {
+        logEmailReply(note.trim());
+      }
+    }, 2000);
   };
 
-  const logEmailClientReply = async (note: string) => {
+  const logEmailReply = async (note: string) => {
     if (!contact) return;
 
     try {
@@ -188,110 +176,11 @@ export default function ContactDetailModal({
       });
 
       if (response.ok) {
-        fetchInteractions();
+        fetchReplies();
         onRefresh();
       }
     } catch (error) {
       console.error("Error logging reply:", error);
-    }
-  };
-
-  const handleAddNote = async () => {
-    if (!noteContent.trim() || !contact) return;
-
-    try {
-      const response = await fetch("/api/admin/contacts/interactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contactId: contact.id,
-          content: noteContent.trim(),
-        }),
-      });
-
-      if (response.ok) {
-        setNoteContent("");
-        setShowNoteForm(false);
-        fetchInteractions();
-      } else {
-        alert("Failed to add note");
-      }
-    } catch (error) {
-      console.error("Error adding note:", error);
-      alert("An error occurred while adding note");
-    }
-  };
-
-  const handleToggleStar = async () => {
-    if (!contact) return;
-
-    const newStarred = !isStarred;
-    setIsStarred(newStarred);
-
-    try {
-      const response = await fetch("/api/admin/contacts/star", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contactId: contact.id,
-          isStarred: newStarred,
-        }),
-      });
-
-      if (response.ok) {
-        onRefresh();
-      } else {
-        setIsStarred(!newStarred);
-        alert("Failed to update star status");
-      }
-    } catch (error) {
-      console.error("Error toggling star:", error);
-      setIsStarred(!newStarred);
-    }
-  };
-
-  const handleStatusChange = async (newStatus: string) => {
-    if (!contact || newStatus === contact.status) return;
-
-    // Prevent changing back to "new"
-    if (newStatus === "new" && contact.status !== "new") {
-      alert("Cannot change status back to 'new'");
-      return;
-    }
-
-    setSelectedStatus(newStatus);
-
-    try {
-      const response = await fetch("/api/admin/contacts/status", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contactId: contact.id,
-          status: newStatus,
-        }),
-      });
-
-      if (response.ok) {
-        fetchInteractions();
-        onRefresh();
-      } else {
-        setSelectedStatus(contact.status);
-        alert("Failed to update status");
-      }
-    } catch (error) {
-      console.error("Error updating status:", error);
-      setSelectedStatus(contact.status);
-    }
-  };
-
-  const handleCopyEmailInline = async () => {
-    if (!contact) return;
-    try {
-      await navigator.clipboard.writeText(contact.business_email);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } catch (error) {
-      console.error("Failed to copy:", error);
     }
   };
 
@@ -320,22 +209,7 @@ export default function ContactDetailModal({
     );
   };
 
-  const getInteractionIcon = (type: string) => {
-    switch (type) {
-      case "reply":
-        return "✉️";
-      case "note":
-        return "📝";
-      case "status_change":
-        return "🔄";
-      default:
-        return "•";
-    }
-  };
-
-  const displayedInteractions = showAllInteractions
-    ? interactions
-    : interactions.slice(0, 3);
+  const displayedReplies = showAllReplies ? replies : replies.slice(0, 1);
 
   return (
     <>
@@ -348,30 +222,14 @@ export default function ContactDetailModal({
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
         <div
-          className="relative w-full max-w-4xl my-8 bg-white rounded-lg shadow-2xl dark:bg-gray-800"
+          className="relative w-full max-w-4xl bg-white rounded-lg shadow-2xl dark:bg-gray-800 my-8"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-                Contact Details
-              </h2>
-              <button
-                onClick={handleToggleStar}
-                className="p-2 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                title={isStarred ? "Remove star" : "Add star"}
-              >
-                <Star
-                  size={20}
-                  className={
-                    isStarred
-                      ? "fill-yellow-400 text-yellow-400"
-                      : "text-gray-400"
-                  }
-                />
-              </button>
-            </div>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+              Contact Details
+            </h2>
             <button
               onClick={onClose}
               className="p-2 text-gray-400 transition-colors rounded-lg hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
@@ -382,33 +240,16 @@ export default function ContactDetailModal({
 
           {/* Content */}
           <div className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-            {/* Status and Date */}
-            <div className="flex items-center justify-between gap-4">
-              {/* Status Dropdown - Super Admin Only */}
-              {userRole === "super_admin" ? (
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                  className={`px-3 py-1 text-sm font-semibold rounded-full border-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${getStatusBadge(
-                    selectedStatus
-                  )}`}
-                >
-                  <option value="new">New</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="replied">Replied</option>
-                  <option value="closed">Closed</option>
-                </select>
-              ) : (
-                <span
-                  className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusBadge(
-                    selectedStatus
-                  )}`}
-                >
-                  {selectedStatus.charAt(0).toUpperCase() +
-                    selectedStatus.slice(1)}
-                </span>
-              )}
-
+            {/* Status Badge */}
+            <div className="flex items-center justify-between">
+              <span
+                className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusBadge(
+                  contact.status
+                )}`}
+              >
+                {contact.status.charAt(0).toUpperCase() +
+                  contact.status.slice(1)}
+              </span>
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 <Calendar className="inline w-4 h-4 mr-1" />
                 {formatDate(contact.created_at)}
@@ -428,19 +269,9 @@ export default function ContactDetailModal({
               </div>
 
               <div className="p-4 bg-gray-50 rounded-lg dark:bg-gray-900/50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                    <Mail className="w-4 h-4 mr-2" />
-                    Email
-                  </div>
-                  <button
-                    onClick={handleCopyEmailInline}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 transition-colors rounded hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                    title="Copy email"
-                  >
-                    <Copy size={14} />
-                    {copySuccess ? "Copied!" : "Copy"}
-                  </button>
+                <div className="flex items-center mb-2 text-sm text-gray-500 dark:text-gray-400">
+                  <Mail className="w-4 h-4 mr-2" />
+                  Email
                 </div>
                 <a
                   href={`mailto:${contact.business_email}`}
@@ -495,74 +326,50 @@ export default function ContactDetailModal({
               </p>
             </div>
 
-            {/* Interaction Timeline */}
-            {interactions.length > 0 && (
+            {/* Reply History */}
+            {replies.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-                    <Clock className="inline w-5 h-5 mr-2" />
-                    Activity Timeline
+                    <History className="inline w-5 h-5 mr-2" />
+                    Reply History
                   </h3>
-                  {interactions.length > 3 && (
+                  {replies.length > 1 && (
                     <button
-                      onClick={() =>
-                        setShowAllInteractions(!showAllInteractions)
-                      }
+                      onClick={() => setShowAllReplies(!showAllReplies)}
                       className="text-sm text-blue-600 hover:underline dark:text-blue-400"
                     >
-                      {showAllInteractions
-                        ? "Show Recent"
-                        : `View All ${interactions.length} Activities`}
+                      {showAllReplies
+                        ? "Show Latest Only"
+                        : `View All ${replies.length} Replies`}
                     </button>
                   )}
                 </div>
 
-                {loadingInteractions ? (
-                  <p className="text-sm text-gray-500">Loading timeline...</p>
+                {loadingReplies ? (
+                  <p className="text-sm text-gray-500">Loading replies...</p>
                 ) : (
                   <div className="space-y-3">
-                    {displayedInteractions.map((interaction) => (
+                    {displayedReplies.map((reply) => (
                       <div
-                        key={interaction.id}
-                        className="p-4 border-l-4 rounded-lg bg-gray-50 dark:bg-gray-900/50 border-gray-300 dark:border-gray-600"
+                        key={reply.id}
+                        className="p-4 border-l-4 border-green-500 bg-green-50 rounded-lg dark:bg-green-900/20"
                       >
                         <div className="flex items-start justify-between mb-2">
-                          <span className="text-sm font-semibold text-gray-800 dark:text-white">
-                            {getInteractionIcon(interaction.interaction_type)}{" "}
-                            {interaction.interaction_type === "reply" &&
-                              "Reply Sent"}
-                            {interaction.interaction_type === "note" &&
-                              "Note Added"}
-                            {interaction.interaction_type === "status_change" &&
-                              "Status Changed"}
+                          <span className="text-xs font-semibold text-green-800 dark:text-green-400">
+                            {reply.reply_method === "in_app"
+                              ? "📧 In-App Reply"
+                              : "✉️ Email Client"}
                           </span>
                           <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {formatDate(interaction.created_at)}
+                            {formatDate(reply.created_at)}
                           </span>
                         </div>
-
-                        {interaction.interaction_type === "status_change" ? (
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Status updated from{" "}
-                            <span className="font-semibold">
-                              {interaction.old_value}
-                            </span>{" "}
-                            to{" "}
-                            <span className="font-semibold">
-                              {interaction.new_value}
-                            </span>
-                          </p>
-                        ) : (
-                          <div
-                            className="text-sm text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none"
-                            dangerouslySetInnerHTML={{
-                              __html: interaction.content || "",
-                            }}
-                          />
-                        )}
-
-                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                          By {interaction.profiles.full_name}
+                        <p className="mb-2 text-sm text-gray-700 whitespace-pre-wrap dark:text-gray-300">
+                          {reply.reply_message}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          By {reply.profiles.full_name}
                         </p>
                       </div>
                     ))}
@@ -574,7 +381,7 @@ export default function ContactDetailModal({
             {/* Reply Section (Super Admin Only) */}
             {userRole === "super_admin" && (
               <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-                {!showReplyForm && !showNoteForm ? (
+                {!showReplyForm ? (
                   <div className="flex gap-3">
                     <button
                       onClick={() => setShowReplyForm(true)}
@@ -584,21 +391,14 @@ export default function ContactDetailModal({
                       Quick Reply (In-App)
                     </button>
                     <button
-                      onClick={handleCopyEmail}
+                      onClick={handleEmailClientReply}
                       className="flex items-center gap-2 px-4 py-2 text-gray-700 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                     >
-                      <Copy size={16} />
-                      Copy Email
-                    </button>
-                    <button
-                      onClick={() => setShowNoteForm(true)}
-                      className="flex items-center gap-2 px-4 py-2 text-gray-700 transition-colors bg-yellow-100 rounded-lg hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50"
-                    >
-                      <StickyNote size={16} />
-                      Add Note
+                      <ExternalLink size={16} />
+                      Reply via Email
                     </button>
                   </div>
-                ) : showReplyForm ? (
+                ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -614,10 +414,12 @@ export default function ContactDetailModal({
                         Cancel
                       </button>
                     </div>
-                    <RichTextEditor
+                    <textarea
                       value={replyMessage}
-                      onChange={setReplyMessage}
-                      placeholder="Type your reply here... You can use formatting options above."
+                      onChange={(e) => setReplyMessage(e.target.value)}
+                      rows={6}
+                      placeholder="Type your reply here..."
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none"
                     />
                     <button
                       onClick={handleSendReply}
@@ -654,38 +456,6 @@ export default function ContactDetailModal({
                           Send Reply
                         </>
                       )}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-                        Add Note
-                      </h3>
-                      <button
-                        onClick={() => {
-                          setShowNoteForm(false);
-                          setNoteContent("");
-                        }}
-                        className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                    <textarea
-                      value={noteContent}
-                      onChange={(e) => setNoteContent(e.target.value)}
-                      rows={4}
-                      placeholder="Add a note about client communication, follow-ups, or other important information..."
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none"
-                    />
-                    <button
-                      onClick={handleAddNote}
-                      disabled={!noteContent.trim()}
-                      className="flex items-center gap-2 px-6 py-2 text-white transition-colors bg-yellow-600 rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <StickyNote size={16} />
-                      Save Note
                     </button>
                   </div>
                 )}

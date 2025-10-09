@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import DataTable, { type Column } from "@/components/shared/DataTable";
 import ContactDetailModal from "@/components/admin/ContactDetailModal";
-import { Eye, Trash2, Download, AlertCircle, Star } from "lucide-react";
+import { Eye, Trash2, Download, AlertCircle } from "lucide-react";
 
 type Contact = {
   id: string;
