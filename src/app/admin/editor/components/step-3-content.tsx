@@ -2,13 +2,16 @@
 "use client";
 
 import React from "react";
-import { useEditor, EditorContent, JSONContent } from "@tiptap/react";
-import { BubbleMenu, FloatingMenu } from "@tiptap/react/menus";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
 import type { Database } from "@/types/supabase";
-import { convertDbBlocksToTiptap } from "../utils/converters";
 import FeaturedImageUploader from "./featured-image-uploader";
+import { BlockWrapper } from "./block-wrapper";
+import ParagraphBlock from "./paragraph-block";
+import { DndContext, closestCenter, DragEndEvent } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { PlusCircle } from "lucide-react";
 
 type Post = Database["public"]["Tables"]["posts"]["Row"];
 type PostBlock = Database["public"]["Tables"]["post_blocks"]["Row"];
@@ -16,43 +19,54 @@ type PostBlock = Database["public"]["Tables"]["post_blocks"]["Row"];
 interface Step3ContentProps {
   post: Post;
   setPost: React.Dispatch<React.SetStateAction<Post>>;
-  initialBlocks: PostBlock[];
-  getEditorJSON: React.MutableRefObject<() => JSONContent | undefined>;
+  blocks: PostBlock[];
+  setBlocks: React.Dispatch<React.SetStateAction<PostBlock[]>>;
 }
 
 export default function Step3Content({
   post,
   setPost,
-  initialBlocks,
-  getEditorJSON,
+  blocks,
+  setBlocks,
 }: Step3ContentProps) {
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({
-        placeholder: "Start writing your amazing content here...",
-      }),
-    ],
-    // Load the initial content by converting DB blocks
-    content: convertDbBlocksToTiptap(initialBlocks),
-    editorProps: {
-      attributes: {
-        class: "prose dark:prose-invert prose-lg focus:outline-none max-w-none",
-      },
-    },
-    onUpdate: ({ editor }) => {
-      // Expose the editor's content via the passed-in function reference
-      getEditorJSON.current = () => editor.getJSON();
-    },
-    immediatelyRender: false, // Add this to fix SSR/hydration mismatch
-  });
+  const handleAddBlock = (type: "paragraph" | "heading") => {
+    const newBlock: PostBlock = {
+      id: crypto.randomUUID(), // Temporary client-side ID
+      post_id: post.id,
+      type: type,
+      content:
+        type === "paragraph"
+          ? { type: "doc", content: [{ type: "paragraph" }] }
+          : { level: 2, text: "" },
+      order_index: blocks.length,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setBlocks((prev) => [...prev, newBlock]);
+  };
 
-  // Initialize the function reference on first render
-  if (editor && !getEditorJSON.current) {
-    getEditorJSON.current = () => editor.getJSON();
-  }
+  const handleBlockChange = (blockId: string, newContent: any) => {
+    setBlocks((prev) =>
+      prev.map((block) =>
+        block.id === blockId ? { ...block, content: newContent } : block
+      )
+    );
+  };
 
-  if (!editor) return null;
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setBlocks((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const newItems = Array.from(items);
+        const [removed] = newItems.splice(oldIndex, 1);
+        newItems.splice(newIndex, 0, removed);
+        // Re-assign order_index based on new position
+        return newItems.map((item, index) => ({ ...item, order_index: index }));
+      });
+    }
+  };
 
   return (
     <div className="p-4 md:p-8">
@@ -66,71 +80,43 @@ export default function Step3Content({
           className="w-full text-4xl font-extrabold tracking-tight bg-transparent border-0 resize-none focus:ring-0 p-0"
           placeholder="Post Title"
         />
-        {/* --- REPLACE THE PLACEHOLDER --- */}
+
         <FeaturedImageUploader post={post} setPost={setPost} />
-        {/* ---------------------------------- */}
-        <div className="py-4 relative">
-          <BubbleMenu
-            editor={editor}
-            options={{
-              placement: "top",
-              offset: { mainAxis: 10, crossAxis: 0 },
-            }}
-            className="bg-gray-800 text-white rounded-lg p-1 flex gap-1"
+
+        <div className="py-4 relative space-y-4">
+          <DndContext
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            <button
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              className={
-                editor.isActive("bold")
-                  ? "bg-gray-600 p-2 rounded"
-                  : "p-2 rounded hover:bg-gray-700"
-              }
+            <SortableContext
+              items={blocks.map((b) => b.id)}
+              strategy={verticalListSortingStrategy}
             >
-              Bold
-            </button>
-            <button
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              className={
-                editor.isActive("italic")
-                  ? "bg-gray-600 p-2 rounded"
-                  : "p-2 rounded hover:bg-gray-700"
-              }
-            >
-              Italic
-            </button>
-          </BubbleMenu>
-          <FloatingMenu
-            editor={editor}
-            options={{
-              placement: "top",
-              offset: { mainAxis: 10, crossAxis: 0 },
-            }}
-            className="bg-white dark:bg-gray-700 shadow-lg rounded-lg border dark:border-gray-600 overflow-hidden"
+              {blocks.map((block) => (
+                <BlockWrapper key={block.id} id={block.id}>
+                  {block.type === "paragraph" && (
+                    <ParagraphBlock
+                      content={block.content}
+                      onChange={(newContent) =>
+                        handleBlockChange(block.id, newContent)
+                      }
+                    />
+                  )}
+                  {/* We will add other block types like Heading here later */}
+                </BlockWrapper>
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+
+        <div className="text-center">
+          <button
+            onClick={() => handleAddBlock("paragraph")}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
           >
-            <button
-              onClick={() => editor.chain().focus().setParagraph().run()}
-              className="p-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600"
-            >
-              Paragraph
-            </button>
-            <button
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 2 }).run()
-              }
-              className="p-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600 font-bold text-xl"
-            >
-              H2
-            </button>
-            <button
-              onClick={() =>
-                editor.chain().focus().toggleHeading({ level: 3 }).run()
-              }
-              className="p-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600 font-bold text-lg"
-            >
-              H3
-            </button>
-          </FloatingMenu>
-          <EditorContent editor={editor} />
+            <PlusCircle size={16} />
+            Add Paragraph
+          </button>
         </div>
       </div>
     </div>

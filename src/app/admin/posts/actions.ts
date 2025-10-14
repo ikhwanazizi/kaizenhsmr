@@ -276,3 +276,34 @@ export async function publishPost(postId: string) {
 
   return { success: true, message: "Post published successfully!" };
 }
+
+export async function getPostById(postId: string) {
+  const supabase = await createClient();
+
+  const { data: post, error: postError } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("id", postId)
+    .single();
+
+  if (postError) {
+    console.error("Error fetching post:", postError);
+    return { success: false, message: "Post not found.", post: null, blocks: [] };
+  }
+
+  const { data: blocks, error: blocksError } = await supabase
+    .from("post_blocks")
+    .select("*")
+    .eq("post_id", postId)
+    .order("order_index", { ascending: true });
+
+  if (blocksError) {
+    console.error("Error fetching blocks:", blocksError);
+    return { success: true, post, blocks: [] };
+  }
+
+  // --- THIS IS THE FIX ---
+  // If blocks is null (no records found), return an empty array instead.
+  return { success: true, post, blocks: blocks || [] };
+  // -----------------------
+}
