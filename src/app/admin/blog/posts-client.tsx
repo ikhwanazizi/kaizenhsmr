@@ -56,7 +56,6 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     setIsDeleting(false);
     setIsDeleteModalOpen(false);
     setPostToDelete(null);
-    // The page will be revalidated by the server action, so no need to refetch here.
   };
 
   const columns: Column<PostWithAuthor>[] = [
@@ -103,7 +102,7 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
       label: "Published Date",
       render: (post) =>
         post.published_at
-          ? new Date(post.published_at).toLocaleDateString()
+          ? new Date(post.published_at).toLocaleDateString("en-GB") // <-- THE FIX IS HERE
           : "Not Published",
     },
   ];

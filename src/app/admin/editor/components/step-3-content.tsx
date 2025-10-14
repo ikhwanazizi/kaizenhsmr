@@ -8,6 +8,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import type { Database } from "@/types/supabase";
 import { convertDbBlocksToTiptap } from "../utils/converters";
+import FeaturedImageUploader from "./featured-image-uploader";
 
 type Post = Database["public"]["Tables"]["posts"]["Row"];
 type PostBlock = Database["public"]["Tables"]["post_blocks"]["Row"];
@@ -65,11 +66,9 @@ export default function Step3Content({
           className="w-full text-4xl font-extrabold tracking-tight bg-transparent border-0 resize-none focus:ring-0 p-0"
           placeholder="Post Title"
         />
-        <div className="p-4 text-center border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-600">
-          <p className="text-sm text-gray-500">
-            Featured Image Uploader will go here.
-          </p>
-        </div>
+        {/* --- REPLACE THE PLACEHOLDER --- */}
+        <FeaturedImageUploader post={post} setPost={setPost} />
+        {/* ---------------------------------- */}
         <div className="py-4 relative">
           <BubbleMenu
             editor={editor}
