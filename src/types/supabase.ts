@@ -49,50 +49,42 @@ export type Database = {
           },
         ]
       }
-      blog_posts: {
+      contact_replies: {
         Row: {
-          author_id: string | null
-          content: string
+          contact_id: string
           created_at: string | null
-          excerpt: string | null
-          featured_image: string | null
           id: string
-          published_at: string | null
-          slug: string
-          status: string | null
-          title: string
-          updated_at: string | null
+          replied_by: string
+          reply_message: string
+          reply_method: string
         }
         Insert: {
-          author_id?: string | null
-          content: string
+          contact_id: string
           created_at?: string | null
-          excerpt?: string | null
-          featured_image?: string | null
           id?: string
-          published_at?: string | null
-          slug: string
-          status?: string | null
-          title: string
-          updated_at?: string | null
+          replied_by: string
+          reply_message: string
+          reply_method: string
         }
         Update: {
-          author_id?: string | null
-          content?: string
+          contact_id?: string
           created_at?: string | null
-          excerpt?: string | null
-          featured_image?: string | null
           id?: string
-          published_at?: string | null
-          slug?: string
-          status?: string | null
-          title?: string
-          updated_at?: string | null
+          replied_by?: string
+          reply_message?: string
+          reply_method?: string
         }
         Relationships: [
           {
-            foreignKeyName: "blog_posts_author_id_fkey"
-            columns: ["author_id"]
+            foreignKeyName: "contact_replies_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_replies_replied_by_fkey"
+            columns: ["replied_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -108,7 +100,12 @@ export type Database = {
           created_at: string | null
           full_name: string
           id: string
+          is_starred: boolean | null
+          last_reply_at: string | null
           message: string
+          replied_at: string | null
+          replied_by: string | null
+          reply_note: string | null
           status: string | null
           updated_at: string | null
         }
@@ -120,7 +117,12 @@ export type Database = {
           created_at?: string | null
           full_name: string
           id?: string
+          is_starred?: boolean | null
+          last_reply_at?: string | null
           message: string
+          replied_at?: string | null
+          replied_by?: string | null
+          reply_note?: string | null
           status?: string | null
           updated_at?: string | null
         }
@@ -132,38 +134,358 @@ export type Database = {
           created_at?: string | null
           full_name?: string
           id?: string
+          is_starred?: boolean | null
+          last_reply_at?: string | null
           message?: string
+          replied_at?: string | null
+          replied_by?: string | null
+          reply_note?: string | null
           status?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_replied_by_fkey"
+            columns: ["replied_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      newsletter_campaigns: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_details: Json | null
+          id: string
+          post_id: string
+          preview_text: string | null
+          sent_at: string | null
+          sent_by: string
+          status: string | null
+          subject: string
+          total_failed: number | null
+          total_recipients: number
+          total_sent: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_details?: Json | null
+          id?: string
+          post_id: string
+          preview_text?: string | null
+          sent_at?: string | null
+          sent_by: string
+          status?: string | null
+          subject: string
+          total_failed?: number | null
+          total_recipients?: number
+          total_sent?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_details?: Json | null
+          id?: string
+          post_id?: string
+          preview_text?: string | null
+          sent_at?: string | null
+          sent_by?: string
+          status?: string | null
+          subject?: string
+          total_failed?: number | null
+          total_recipients?: number
+          total_sent?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "newsletter_campaigns_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "newsletter_campaigns_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      newsletter_send_log: {
+        Row: {
+          campaign_id: string
+          clicked_at: string | null
+          created_at: string | null
+          email: string
+          error_message: string | null
+          id: string
+          opened_at: string | null
+          sent_at: string | null
+          status: string | null
+          subscriber_id: string
+        }
+        Insert: {
+          campaign_id: string
+          clicked_at?: string | null
+          created_at?: string | null
+          email: string
+          error_message?: string | null
+          id?: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subscriber_id: string
+        }
+        Update: {
+          campaign_id?: string
+          clicked_at?: string | null
+          created_at?: string | null
+          email?: string
+          error_message?: string | null
+          id?: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          subscriber_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "newsletter_send_log_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "newsletter_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "newsletter_send_log_subscriber_id_fkey"
+            columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "newsletter_subscribers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       newsletter_subscribers: {
         Row: {
-          created_at: string | null
+          created_at: string
           email: string
           id: string
-          status: string | null
-          subscription_date: string | null
+          status: Database["public"]["Enums"]["newsletter_status"]
+          unsubscribe_token: string | null
+          verification_token: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          status?: Database["public"]["Enums"]["newsletter_status"]
+          unsubscribe_token?: string | null
+          verification_token?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          status?: Database["public"]["Enums"]["newsletter_status"]
+          unsubscribe_token?: string | null
+          verification_token?: string | null
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
+      post_blocks: {
+        Row: {
+          content: Json
+          created_at: string | null
+          id: string
+          order_index: number
+          post_id: string
+          type: string
           updated_at: string | null
         }
         Insert: {
+          content: Json
           created_at?: string | null
-          email: string
           id?: string
-          status?: string | null
-          subscription_date?: string | null
+          order_index: number
+          post_id: string
+          type: string
           updated_at?: string | null
         }
         Update: {
+          content?: Json
           created_at?: string | null
-          email?: string
           id?: string
-          status?: string | null
-          subscription_date?: string | null
+          order_index?: number
+          post_id?: string
+          type?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "post_blocks_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_revisions: {
+        Row: {
+          blocks: Json
+          change_summary: string | null
+          created_at: string | null
+          created_by: string
+          excerpt: string | null
+          featured_image: string | null
+          featured_image_alt: string | null
+          id: string
+          metadata: Json | null
+          post_id: string
+          revision_number: number
+          seo_meta_description: string | null
+          seo_meta_title: string | null
+          seo_og_image: string | null
+          title: string
+        }
+        Insert: {
+          blocks: Json
+          change_summary?: string | null
+          created_at?: string | null
+          created_by: string
+          excerpt?: string | null
+          featured_image?: string | null
+          featured_image_alt?: string | null
+          id?: string
+          metadata?: Json | null
+          post_id: string
+          revision_number: number
+          seo_meta_description?: string | null
+          seo_meta_title?: string | null
+          seo_og_image?: string | null
+          title: string
+        }
+        Update: {
+          blocks?: Json
+          change_summary?: string | null
+          created_at?: string | null
+          created_by?: string
+          excerpt?: string | null
+          featured_image?: string | null
+          featured_image_alt?: string | null
+          id?: string
+          metadata?: Json | null
+          post_id?: string
+          revision_number?: number
+          seo_meta_description?: string | null
+          seo_meta_title?: string | null
+          seo_og_image?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_revisions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_revisions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          author_id: string | null
+          category: string
+          created_at: string | null
+          excerpt: string | null
+          featured_image: string | null
+          featured_image_alt: string | null
+          id: string
+          last_autosaved_at: string | null
+          metadata: Json | null
+          newsletter_preview_text: string | null
+          newsletter_sent_at: string | null
+          newsletter_subject: string | null
+          published_at: string | null
+          send_to_newsletter: boolean | null
+          seo_meta_description: string | null
+          seo_meta_title: string | null
+          seo_og_image: string | null
+          slug: string
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          category: string
+          created_at?: string | null
+          excerpt?: string | null
+          featured_image?: string | null
+          featured_image_alt?: string | null
+          id?: string
+          last_autosaved_at?: string | null
+          metadata?: Json | null
+          newsletter_preview_text?: string | null
+          newsletter_sent_at?: string | null
+          newsletter_subject?: string | null
+          published_at?: string | null
+          send_to_newsletter?: boolean | null
+          seo_meta_description?: string | null
+          seo_meta_title?: string | null
+          seo_og_image?: string | null
+          slug: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          category?: string
+          created_at?: string | null
+          excerpt?: string | null
+          featured_image?: string | null
+          featured_image_alt?: string | null
+          id?: string
+          last_autosaved_at?: string | null
+          metadata?: Json | null
+          newsletter_preview_text?: string | null
+          newsletter_sent_at?: string | null
+          newsletter_subject?: string | null
+          published_at?: string | null
+          send_to_newsletter?: boolean | null
+          seo_meta_description?: string | null
+          seo_meta_title?: string | null
+          seo_og_image?: string | null
+          slug?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -172,7 +494,6 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
-          last_login: string | null
           role: string | null
           status: string | null
           updated_at: string | null
@@ -183,7 +504,6 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
-          last_login?: string | null
           role?: string | null
           status?: string | null
           updated_at?: string | null
@@ -194,7 +514,6 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
-          last_login?: string | null
           role?: string | null
           status?: string | null
           updated_at?: string | null
@@ -217,6 +536,8 @@ export type Database = {
       get_all_users_with_profiles: {
         Args: Record<PropertyKey, never>
         Returns: {
+          created_by_id: string
+          created_by_name: string
           email: string
           full_name: string
           id: string
@@ -225,13 +546,30 @@ export type Database = {
           status: string
         }[]
       }
+      get_campaign_stats: {
+        Args: { campaign_uuid: string }
+        Returns: {
+          total_clicked: number
+          total_failed: number
+          total_opened: number
+          total_sent: number
+        }[]
+      }
       get_my_role: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_user_last_sign_in: {
+        Args: { user_id: string }
+        Returns: string
+      }
+      get_user_status_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      newsletter_status: "subscribed" | "unverified" | "unsubscribed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -358,6 +696,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      newsletter_status: ["subscribed", "unverified", "unsubscribed"],
+    },
   },
 } as const
