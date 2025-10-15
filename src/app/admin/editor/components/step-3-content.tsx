@@ -28,6 +28,7 @@ import {
   Quote,
   Code,
   X,
+  Table,
 } from "lucide-react";
 
 type Post = Database["public"]["Tables"]["posts"]["Row"];
@@ -57,7 +58,14 @@ export default function Step3Content({
   }, [blocks, getEditorJSON]);
 
   const handleAddBlock = (
-    type: "paragraph" | "heading" | "image" | "video" | "quote" | "code"
+    type:
+      | "paragraph"
+      | "heading"
+      | "image"
+      | "video"
+      | "quote"
+      | "code"
+      | "table"
   ) => {
     let defaultContent: any = {};
 
@@ -82,6 +90,114 @@ export default function Step3Content({
         break;
       case "code":
         defaultContent = { code: "", language: "javascript" };
+        break;
+      case "table":
+        defaultContent = {
+          type: "doc",
+          content: [
+            {
+              type: "table",
+              content: [
+                {
+                  type: "tableRow",
+                  content: [
+                    {
+                      type: "tableHeader",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "Header 1" }],
+                        },
+                      ],
+                    },
+                    {
+                      type: "tableHeader",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "Header 2" }],
+                        },
+                      ],
+                    },
+                    {
+                      type: "tableHeader",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "Header 3" }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: "tableRow",
+                  content: [
+                    {
+                      type: "tableCell",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "Cell 1" }],
+                        },
+                      ],
+                    },
+                    {
+                      type: "tableCell",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "Cell 2" }],
+                        },
+                      ],
+                    },
+                    {
+                      type: "tableCell",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "Cell 3" }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: "tableRow",
+                  content: [
+                    {
+                      type: "tableCell",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "Cell 4" }],
+                        },
+                      ],
+                    },
+                    {
+                      type: "tableCell",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "Cell 5" }],
+                        },
+                      ],
+                    },
+                    {
+                      type: "tableCell",
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "Cell 6" }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        };
         break;
     }
 
@@ -227,6 +343,7 @@ export default function Step3Content({
 
     switch (block.type) {
       case "paragraph":
+      case "table": // Use same component for table blocks
         return <ParagraphBlock content={block.content as any} {...baseProps} />;
       case "heading":
         return <HeadingBlock content={block.content as any} {...baseProps} />;
@@ -308,7 +425,7 @@ export default function Step3Content({
         <div className="relative">
           <button
             onClick={() => setShowBlockMenu(!showBlockMenu)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+            className="inline-flex items-center gap-1 px-4 py-1 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
           >
             <PlusCircle size={16} />
             Add Block
@@ -347,6 +464,12 @@ export default function Step3Content({
                   label="Quote"
                   description="Highlighted quote"
                   onClick={() => handleAddBlock("quote")}
+                />
+                <BlockMenuItem
+                  icon={<Table size={18} />}
+                  label="Table"
+                  description="Data table"
+                  onClick={() => handleAddBlock("table")}
                 />
                 <BlockMenuItem
                   icon={<Code size={18} />}

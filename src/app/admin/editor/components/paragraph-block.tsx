@@ -8,6 +8,10 @@ import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
+import { Table } from "@tiptap/extension-table";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableRow } from "@tiptap/extension-table-row";
 import {
   Bold,
   Italic,
@@ -25,8 +29,12 @@ import {
   Quote,
   Undo,
   Redo,
-  Table,
+  Table as TableIcon,
   Minus,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -48,6 +56,7 @@ export default function ParagraphBlock({
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showTableMenu, setShowTableMenu] = useState(false);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -56,7 +65,7 @@ export default function ParagraphBlock({
         heading: false,
         codeBlock: false,
         blockquote: false,
-        horizontalRule: false,
+        // Removed horizontalRule: false to enable HR
       }),
       Placeholder.configure({ placeholder: "Type / to see commands..." }),
       Link.configure({
@@ -70,12 +79,18 @@ export default function ParagraphBlock({
       TextAlign.configure({
         types: ["paragraph"],
       }),
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     content: content,
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[60px] px-4 py-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:list-outside [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:list-outside [&_li]:my-1",
+          "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[60px] px-4 py-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:list-outside [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:list-outside [&_li]:my-1 [&_table]:my-4 [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_th]:font-bold [&_th]:bg-gray-100 dark:[&_th]:bg-gray-700",
       },
     },
     onUpdate: ({ editor }) => {
@@ -108,6 +123,23 @@ export default function ParagraphBlock({
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
       {/* Toolbar */}
       <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex items-center gap-1 flex-wrap">
+        {/* Undo/Redo */}
+        <ToolbarButton
+          onClick={() => editor.chain().focus().undo().run()}
+          disabled={!editor.can().undo()}
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo size={16} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().redo().run()}
+          disabled={!editor.can().redo()}
+          title="Redo (Ctrl+Y)"
+        >
+          <Redo size={16} />
+        </ToolbarButton>
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
         {/* Text Formatting */}
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -167,6 +199,160 @@ export default function ParagraphBlock({
         >
           <ListOrdered size={16} />
         </ToolbarButton>
+
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+        {/* Alignment */}
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign("left").run()}
+          isActive={editor.isActive({ textAlign: "left" })}
+          title="Align Left"
+        >
+          <AlignLeft size={16} />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+          isActive={editor.isActive({ textAlign: "center" })}
+          title="Align Center"
+        >
+          <AlignCenter size={16} />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+          isActive={editor.isActive({ textAlign: "right" })}
+          title="Align Right"
+        >
+          <AlignRight size={16} />
+        </ToolbarButton>
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+          isActive={editor.isActive({ textAlign: "justify" })}
+          title="Justify"
+        >
+          <AlignJustify size={16} />
+        </ToolbarButton>
+
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+
+        {/* HR and Table */}
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          title="Insert Horizontal Rule"
+        >
+          <Minus size={16} />
+        </ToolbarButton>
+
+        <div className="relative">
+          <ToolbarButton
+            onClick={() => {
+              if (editor.isActive("table")) {
+                setShowTableMenu(!showTableMenu);
+              } else {
+                editor
+                  .chain()
+                  .focus()
+                  .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                  .run();
+              }
+            }}
+            isActive={editor.isActive("table")}
+            title={editor.isActive("table") ? "Table Options" : "Insert Table"}
+          >
+            <TableIcon size={16} />
+          </ToolbarButton>
+
+          {showTableMenu && editor.isActive("table") && (
+            <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-20">
+              <button
+                onClick={() => {
+                  editor.chain().focus().addRowBefore().run();
+                  setShowTableMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Add row above
+              </button>
+              <button
+                onClick={() => {
+                  editor.chain().focus().addRowAfter().run();
+                  setShowTableMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Add row below
+              </button>
+              <button
+                onClick={() => {
+                  editor.chain().focus().deleteRow().run();
+                  setShowTableMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Delete row
+              </button>
+              <div className="border-t border-gray-200 dark:border-gray-700" />
+              <button
+                onClick={() => {
+                  editor.chain().focus().addColumnBefore().run();
+                  setShowTableMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Add column left
+              </button>
+              <button
+                onClick={() => {
+                  editor.chain().focus().addColumnAfter().run();
+                  setShowTableMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Add column right
+              </button>
+              <button
+                onClick={() => {
+                  editor.chain().focus().deleteColumn().run();
+                  setShowTableMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Delete column
+              </button>
+              <div className="border-t border-gray-200 dark:border-gray-700" />
+              <button
+                onClick={() => {
+                  editor.chain().focus().mergeCells().run();
+                  setShowTableMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Merge cells
+              </button>
+              <button
+                onClick={() => {
+                  editor.chain().focus().splitCell().run();
+                  setShowTableMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Split cell
+              </button>
+              <div className="border-t border-gray-200 dark:border-gray-700" />
+              <button
+                onClick={() => {
+                  editor.chain().focus().deleteTable().run();
+                  setShowTableMenu(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              >
+                Delete table
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
 
@@ -294,11 +480,13 @@ export default function ParagraphBlock({
 function ToolbarButton({
   onClick,
   isActive = false,
+  disabled = false,
   children,
   title,
 }: {
   onClick: () => void;
   isActive?: boolean;
+  disabled?: boolean;
   children: React.ReactNode;
   title?: string;
 }) {
@@ -306,11 +494,12 @@ function ToolbarButton({
     <button
       onClick={onClick}
       title={title}
+      disabled={disabled}
       className={`p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
         isActive
           ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
           : "text-gray-700 dark:text-gray-300"
-      }`}
+      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
     >
       {children}
     </button>
