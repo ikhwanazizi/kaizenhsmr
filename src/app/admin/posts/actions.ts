@@ -6,9 +6,8 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/types/supabase";
 
-// CHANGE 1: The function is now async and we await cookies()
 async function createClient() {
-  const cookieStore = await cookies(); // <-- Await this
+  const cookieStore = await cookies();
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -20,7 +19,6 @@ async function createClient() {
   );
 }
 
-// Helper function to generate a URL-friendly slug
 function generateSlug(title: string): string {
   return title
     .toLowerCase()
@@ -32,7 +30,6 @@ function generateSlug(title: string): string {
 }
 
 export async function createPost(category: "blog" | "development") {
-  // CHANGE 2: Await the createClient() call
   const supabase = await createClient();
 
   const {
@@ -68,7 +65,6 @@ export async function createPost(category: "blog" | "development") {
 }
 
 export async function getAllPosts() {
-  // CHANGE 3: Await the createClient() call
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("posts")
@@ -97,7 +93,6 @@ export async function getAllPosts() {
 }
 
 export async function deletePost(postId: string) {
-  // CHANGE 4: Await the createClient() call
   const supabase = await createClient();
 
   const { error } = await supabase.from("posts").delete().eq("id", postId);
@@ -111,12 +106,6 @@ export async function deletePost(postId: string) {
   revalidatePath(`/admin/editor/${postId}`);
   return { success: true, message: "Post deleted successfully." };
 }
-
-/**
- * Fetches a single post and its content blocks by ID.
- * @param postId - The ID of the post to fetch.
- * @returns An object with the post data or an error.
- */
 
 export async function getPostById(postId: string) {
   const supabase = await createClient();
@@ -140,19 +129,12 @@ export async function getPostById(postId: string) {
 
   if (blocksError) {
     console.error("Error fetching blocks:", blocksError);
-    // Return post data even if blocks fail
     return { success: true, post, blocks: [] };
   }
 
-  return { success: true, post, blocks };
+  return { success: true, post, blocks: blocks || [] };
 }
 
-/**
- * Updates the category of a post.
- * @param postId - The ID of the post.
- * @param category - The new category.
- * @returns A success or error message.
- */
 export async function updatePostCategory(
   postId: string,
   category: "blog" | "development"
@@ -170,13 +152,6 @@ export async function updatePostCategory(
   return { success: true };
 }
 
-
-/**
- * Updates the main details of a post (slug, SEO, metadata).
- * @param postId - The ID of the post to update.
- * @param details - An object with the fields to update.
- * @returns A success or error message.
- */
 export async function updatePostDetails(
   postId: string,
   details: Partial<Database["public"]["Tables"]["posts"]["Row"]>
@@ -194,18 +169,13 @@ export async function updatePostDetails(
   return { success: true, message: "Details saved successfully." };
 }
 
-/**
- * Updates the core content of a post (title, excerpt) and replaces all of its content blocks.
- * This is an "upsert" operation for blocks.
- * @param postId - The ID of the post to update.
- * @param postDetails - The details of the post to update (e.g., title).
- * @param blocks - The full array of new content blocks.
- * @returns A success or error message.
- */
 export async function updatePostContent(
   postId: string,
   postDetails: Partial<Database["public"]["Tables"]["posts"]["Row"]>,
-  blocks: Omit<Database["public"]["Tables"]["post_blocks"]["Row"], "id" | "created_at" | "updated_at">[]
+  blocks: Omit<
+    Database["public"]["Tables"]["post_blocks"]["Row"],
+    "id" | "created_at" | "updated_at"
+  >[]
 ) {
   const supabase = await createClient();
 
@@ -247,11 +217,6 @@ export async function updatePostContent(
   return { success: true, message: "Content saved successfully." };
 }
 
-/**
- * Publishes a post by updating its status and setting the published_at timestamp.
- * @param postId - The ID of the post to publish.
- * @returns A success or error message.
- */
 export async function publishPost(postId: string) {
   const supabase = await createClient();
 
@@ -270,40 +235,8 @@ export async function publishPost(postId: string) {
 
   revalidatePath("/admin/blog");
   revalidatePath(`/admin/editor/${postId}`);
-  // Also revalidate the public-facing blog pages
   revalidatePath("/resources/blog-articles");
   revalidatePath("/company/developments");
 
   return { success: true, message: "Post published successfully!" };
-}
-
-export async function getPostById(postId: string) {
-  const supabase = await createClient();
-
-  const { data: post, error: postError } = await supabase
-    .from("posts")
-    .select("*")
-    .eq("id", postId)
-    .single();
-
-  if (postError) {
-    console.error("Error fetching post:", postError);
-    return { success: false, message: "Post not found.", post: null, blocks: [] };
-  }
-
-  const { data: blocks, error: blocksError } = await supabase
-    .from("post_blocks")
-    .select("*")
-    .eq("post_id", postId)
-    .order("order_index", { ascending: true });
-
-  if (blocksError) {
-    console.error("Error fetching blocks:", blocksError);
-    return { success: true, post, blocks: [] };
-  }
-
-  // --- THIS IS THE FIX ---
-  // If blocks is null (no records found), return an empty array instead.
-  return { success: true, post, blocks: blocks || [] };
-  // -----------------------
 }

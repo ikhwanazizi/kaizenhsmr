@@ -1,17 +1,34 @@
 // src/app/admin/editor/components/step-3-content.tsx
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import type { Database } from "@/types/supabase";
 import FeaturedImageUploader from "./featured-image-uploader";
 import { BlockWrapper } from "./block-wrapper";
 import ParagraphBlock from "./paragraph-block";
+import dynamic from "next/dynamic";
+
+// Dynamically import the other blocks to reduce initial bundle size
+const HeadingBlock = dynamic(() => import("./heading-block"));
+const ImageBlock = dynamic(() => import("./image-block"));
+const VideoBlock = dynamic(() => import("./video-block"));
+const QuoteBlock = dynamic(() => import("./quote-block"));
+const CodeBlock = dynamic(() => import("./code-block"));
 import { DndContext, closestCenter, DragEndEvent } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { PlusCircle } from "lucide-react";
+import {
+  PlusCircle,
+  Type,
+  Heading1,
+  Image,
+  Video,
+  Quote,
+  Code,
+  X,
+} from "lucide-react";
 
 type Post = Database["public"]["Tables"]["posts"]["Row"];
 type PostBlock = Database["public"]["Tables"]["post_blocks"]["Row"];
@@ -19,37 +36,170 @@ type PostBlock = Database["public"]["Tables"]["post_blocks"]["Row"];
 interface Step3ContentProps {
   post: Post;
   setPost: React.Dispatch<React.SetStateAction<Post>>;
-  blocks: PostBlock[];
-  setBlocks: React.Dispatch<React.SetStateAction<PostBlock[]>>;
+  initialBlocks: PostBlock[];
+  getEditorJSON: React.MutableRefObject<(() => any) | undefined>;
 }
 
 export default function Step3Content({
   post,
   setPost,
-  blocks,
-  setBlocks,
+  initialBlocks,
+  getEditorJSON,
 }: Step3ContentProps) {
-  const handleAddBlock = (type: "paragraph" | "heading") => {
+  const [blocks, setBlocks] = useState<PostBlock[]>(initialBlocks);
+  const [showBlockMenu, setShowBlockMenu] = useState(false);
+
+  // Expose a function to get all blocks as JSON
+  React.useEffect(() => {
+    getEditorJSON.current = () => {
+      return { blocks }; // Return current blocks state
+    };
+  }, [blocks, getEditorJSON]);
+
+  const handleAddBlock = (
+    type: "paragraph" | "heading" | "image" | "video" | "quote" | "code"
+  ) => {
+    let defaultContent: any = {};
+
+    switch (type) {
+      case "paragraph":
+        defaultContent = {
+          type: "doc",
+          content: [{ type: "paragraph" }],
+        };
+        break;
+      case "heading":
+        defaultContent = { level: 2, text: "" };
+        break;
+      case "image":
+        defaultContent = { url: "", alt: "", caption: "" };
+        break;
+      case "video":
+        defaultContent = { url: "", caption: "" };
+        break;
+      case "quote":
+        defaultContent = { text: "", author: "" };
+        break;
+      case "code":
+        defaultContent = { code: "", language: "javascript" };
+        break;
+    }
+
     const newBlock: PostBlock = {
-      id: crypto.randomUUID(), // Temporary client-side ID
+      id: crypto.randomUUID(),
       post_id: post.id,
       type: type,
-      content:
-        type === "paragraph"
-          ? { type: "doc", content: [{ type: "paragraph" }] }
-          : { level: 2, text: "" },
+      content: defaultContent,
       order_index: blocks.length,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
     setBlocks((prev) => [...prev, newBlock]);
+    setShowBlockMenu(false);
   };
 
   const handleBlockChange = (blockId: string, newContent: any) => {
     setBlocks((prev) =>
       prev.map((block) =>
-        block.id === blockId ? { ...block, content: newContent } : block
+        block.id === blockId
+          ? {
+              ...block,
+              content: newContent,
+              updated_at: new Date().toISOString(),
+            }
+          : block
       )
+    );
+  };
+
+  const handleDeleteBlock = (blockId: string) => {
+    setBlocks((prev) => {
+      const filtered = prev.filter((block) => block.id !== blockId);
+      // Re-index after deletion
+      return filtered.map((block, index) => ({
+        ...block,
+        order_index: index,
+      }));
+    });
+  };
+
+  const handleDuplicateBlock = (blockId: string) => {
+    const blockToDuplicate = blocks.find((b) => b.id === blockId);
+    if (!blockToDuplicate) return;
+
+    const newBlock: PostBlock = {
+      ...blockToDuplicate,
+      id: crypto.randomUUID(),
+      order_index: blockToDuplicate.order_index + 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    setBlocks((prev) => {
+      const newBlocks = [...prev];
+      newBlocks.splice(blockToDuplicate.order_index + 1, 0, newBlock);
+      // Re-index
+      return newBlocks.map((block, index) => ({
+        ...block,
+        order_index: index,
+      }));
+    });
+  };
+
+  const handleConvertBlock = (
+    blockId: string,
+    newType: "paragraph" | "heading" | "quote"
+  ) => {
+    setBlocks((prev) =>
+      prev.map((block) => {
+        if (block.id !== blockId) return block;
+
+        let newContent: any = {};
+        const oldContent = block.content as any;
+
+        // Try to preserve text content when converting
+        switch (newType) {
+          case "paragraph":
+            newContent = {
+              type: "doc",
+              content: [
+                {
+                  type: "paragraph",
+                  content: oldContent.text
+                    ? [{ type: "text", text: oldContent.text }]
+                    : [],
+                },
+              ],
+            };
+            break;
+          case "heading":
+            newContent = {
+              level: 2,
+              text:
+                oldContent.text ||
+                oldContent.content?.[0]?.content?.[0]?.text ||
+                "",
+            };
+            break;
+          case "quote":
+            newContent = {
+              text:
+                oldContent.text ||
+                oldContent.content?.[0]?.content?.[0]?.text ||
+                "",
+              author: "",
+            };
+            break;
+        }
+
+        return {
+          ...block,
+          type: newType,
+          content: newContent,
+          updated_at: new Date().toISOString(),
+        };
+      })
     );
   };
 
@@ -62,27 +212,64 @@ export default function Step3Content({
         const newItems = Array.from(items);
         const [removed] = newItems.splice(oldIndex, 1);
         newItems.splice(newIndex, 0, removed);
-        // Re-assign order_index based on new position
         return newItems.map((item, index) => ({ ...item, order_index: index }));
       });
+    }
+  };
+
+  const renderBlock = (block: PostBlock) => {
+    const baseProps = {
+      onChange: (newContent: any) => handleBlockChange(block.id, newContent),
+      onDelete: () => handleDeleteBlock(block.id),
+      onDuplicate: () => handleDuplicateBlock(block.id),
+      onConvert: (newType: any) => handleConvertBlock(block.id, newType),
+    };
+
+    switch (block.type) {
+      case "paragraph":
+        return <ParagraphBlock content={block.content as any} {...baseProps} />;
+      case "heading":
+        return <HeadingBlock content={block.content as any} {...baseProps} />;
+      case "image":
+        return (
+          <ImageBlock
+            content={block.content as any}
+            postId={post.id}
+            {...baseProps}
+          />
+        );
+      case "video":
+        return <VideoBlock content={block.content as any} {...baseProps} />;
+      case "quote":
+        return <QuoteBlock content={block.content as any} {...baseProps} />;
+      case "code":
+        return <CodeBlock content={block.content as any} {...baseProps} />;
+      default:
+        return null;
     }
   };
 
   return (
     <div className="p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Title */}
         <textarea
           rows={1}
           value={post.title || ""}
-          onChange={(e) =>
-            setPost((prev) => ({ ...prev, title: e.target.value }))
-          }
-          className="w-full text-4xl font-extrabold tracking-tight bg-transparent border-0 resize-none focus:ring-0 p-0"
+          onChange={(e) => {
+            setPost((prev) => ({ ...prev, title: e.target.value }));
+            e.target.style.height = "auto";
+            e.target.style.height = e.target.scrollHeight + "px";
+          }}
+          className="w-full text-4xl font-extrabold tracking-tight bg-transparent border-0 resize-none focus:ring-0 focus:outline-none p-0 overflow-hidden"
           placeholder="Post Title"
+          style={{ minHeight: "3rem" }}
         />
 
+        {/* Featured Image */}
         <FeaturedImageUploader post={post} setPost={setPost} />
 
+        {/* Content Blocks */}
         <div className="py-4 relative space-y-4">
           <DndContext
             collisionDetection={closestCenter}
@@ -94,31 +281,106 @@ export default function Step3Content({
             >
               {blocks.map((block) => (
                 <BlockWrapper key={block.id} id={block.id}>
-                  {block.type === "paragraph" && (
-                    <ParagraphBlock
-                      content={block.content}
-                      onChange={(newContent) =>
-                        handleBlockChange(block.id, newContent)
-                      }
-                    />
-                  )}
-                  {/* We will add other block types like Heading here later */}
+                  {renderBlock(block)}
                 </BlockWrapper>
               ))}
             </SortableContext>
           </DndContext>
         </div>
 
-        <div className="text-center">
+        {/* Add Block Button */}
+        <div className="relative">
           <button
-            onClick={() => handleAddBlock("paragraph")}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+            onClick={() => setShowBlockMenu(!showBlockMenu)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
           >
             <PlusCircle size={16} />
-            Add Paragraph
+            Add Block
           </button>
+
+          {/* Block Type Menu */}
+          {showBlockMenu && (
+            <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-10">
+              <div className="p-2 space-y-1">
+                <BlockMenuItem
+                  icon={<Type size={18} />}
+                  label="Paragraph"
+                  description="Rich text content"
+                  onClick={() => handleAddBlock("paragraph")}
+                />
+                <BlockMenuItem
+                  icon={<Heading1 size={18} />}
+                  label="Heading"
+                  description="Section title"
+                  onClick={() => handleAddBlock("heading")}
+                />
+                <BlockMenuItem
+                  icon={<Image size={18} />}
+                  label="Image"
+                  description="Upload or embed"
+                  onClick={() => handleAddBlock("image")}
+                />
+                <BlockMenuItem
+                  icon={<Video size={18} />}
+                  label="Video"
+                  description="YouTube embed"
+                  onClick={() => handleAddBlock("video")}
+                />
+                <BlockMenuItem
+                  icon={<Quote size={18} />}
+                  label="Quote"
+                  description="Highlighted quote"
+                  onClick={() => handleAddBlock("quote")}
+                />
+                <BlockMenuItem
+                  icon={<Code size={18} />}
+                  label="Code"
+                  description="Code snippet"
+                  onClick={() => handleAddBlock("code")}
+                />
+              </div>
+              <div className="border-t border-gray-200 dark:border-gray-700 p-2">
+                <button
+                  onClick={() => setShowBlockMenu(false)}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex items-center gap-2"
+                >
+                  <X size={16} />
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function BlockMenuItem({
+  icon,
+  label,
+  description,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-start gap-3"
+    >
+      <div className="text-gray-600 dark:text-gray-400 mt-0.5">{icon}</div>
+      <div className="flex-1">
+        <div className="font-medium text-sm text-gray-900 dark:text-white">
+          {label}
+        </div>
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          {description}
+        </div>
+      </div>
+    </button>
   );
 }

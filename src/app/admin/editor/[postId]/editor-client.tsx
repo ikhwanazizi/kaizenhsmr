@@ -1,7 +1,7 @@
 // src/app/admin/editor/[postId]/editor-client.tsx
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/types/supabase";
 import {
@@ -10,13 +10,11 @@ import {
   updatePostContent,
   publishPost,
 } from "../../posts/actions";
-import { convertTiptapToDbBlocks } from "../utils/converters";
 import StepIndicator from "../components/step-indicator";
 import Step1Category from "../components/step-1-category";
 import Step2SEO from "../components/step-2-seo";
 import Step3Content from "../components/step-3-content";
-import Step4Review from "../components/step-4-review"; // <-- Import Step 4
-import { JSONContent } from "@tiptap/react";
+import Step4Review from "../components/step-4-review";
 
 type Post = Database["public"]["Tables"]["posts"]["Row"];
 type PostBlock = Database["public"]["Tables"]["post_blocks"]["Row"];
@@ -34,13 +32,10 @@ export default function EditorClient({
     initialPost.category ? (initialPost.title !== "Untitled Post" ? 3 : 2) : 1
   );
   const [post, setPost] = useState<Post>(initialPost);
-  const [blocks, setBlocks] = useState<PostBlock[]>(initialBlocks);
   const [isSaving, setIsSaving] = useState(false);
 
-  // A ref to hold a function that can get the editor's current JSON state
-  const getEditorJSONRef = useRef<(() => JSONContent | undefined) | undefined>(
-    undefined
-  );
+  // Ref to get the current blocks from Step3Content
+  const getEditorContentRef = useRef<(() => any) | undefined>(undefined);
 
   const handleSelectCategory = async (category: "blog" | "development") => {
     setIsSaving(true);
@@ -59,23 +54,36 @@ export default function EditorClient({
     let success = false;
 
     if (currentStep === 2) {
+      // Save SEO & Metadata
       const result = await updatePostDetails(post.id, post);
       if (result.success) setCurrentStep(3);
       success = result.success;
     } else if (currentStep === 3) {
-      const editorJSON = getEditorJSONRef.current?.();
-      if (editorJSON) {
-        const newBlocks = convertTiptapToDbBlocks(post.id, editorJSON);
+      // Save Content
+      const editorData = getEditorContentRef.current?.();
+      if (editorData && editorData.blocks) {
+        const blocksToSave = editorData.blocks.map((block: PostBlock) => ({
+          post_id: block.post_id,
+          type: block.type,
+          content: block.content,
+          order_index: block.order_index,
+        }));
+
         const result = await updatePostContent(
           post.id,
           { title: post.title, excerpt: post.excerpt },
-          newBlocks
+          blocksToSave
         );
+
         if (result.success) {
-          setBlocks(newBlocks as PostBlock[]); // Update local blocks state
           setCurrentStep(4);
+        } else {
+          alert(result.message || "Failed to save content");
         }
         success = result.success;
+      } else {
+        alert("No content to save");
+        success = false;
       }
     } else if (currentStep === 4) {
       // Publish the post
@@ -124,11 +132,16 @@ export default function EditorClient({
           <Step3Content
             post={post}
             setPost={setPost}
-            initialBlocks={blocks}
-            getEditorJSON={getEditorJSONRef as any}
+            initialBlocks={initialBlocks}
+            getEditorJSON={getEditorContentRef as any}
           />
         )}
-        {currentStep === 4 && <Step4Review post={post} blocks={blocks} />}
+        {currentStep === 4 && (
+          <Step4Review
+            post={post}
+            blocks={getEditorContentRef.current?.()?.blocks || initialBlocks}
+          />
+        )}
       </div>
 
       {currentStep > 1 && (
@@ -136,7 +149,7 @@ export default function EditorClient({
           <button
             onClick={() => setCurrentStep(currentStep - 1)}
             disabled={isSaving}
-            className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+            className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
           >
             Back
           </button>
