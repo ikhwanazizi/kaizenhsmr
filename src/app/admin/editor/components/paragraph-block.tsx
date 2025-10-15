@@ -1,3 +1,4 @@
+// src/app/admin/editor/components/paragraph-block.tsx
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -22,6 +23,10 @@ import {
   Type,
   Heading1,
   Quote,
+  Undo,
+  Redo,
+  Table,
+  Minus,
 } from "lucide-react";
 import { useState } from "react";
 

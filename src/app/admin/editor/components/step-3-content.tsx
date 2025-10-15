@@ -252,22 +252,38 @@ export default function Step3Content({
   return (
     <div className="p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Title */}
-        <textarea
-          rows={1}
-          value={post.title || ""}
-          onChange={(e) => {
-            setPost((prev) => ({ ...prev, title: e.target.value }));
-            e.target.style.height = "auto";
-            e.target.style.height = e.target.scrollHeight + "px";
-          }}
-          className="w-full text-4xl font-extrabold tracking-tight bg-transparent border-0 resize-none focus:ring-0 focus:outline-none p-0 overflow-hidden"
-          placeholder="Post Title"
-          style={{ minHeight: "3rem" }}
-        />
+        {/* Title Block */}
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
+          <div className="border-b border-gray-200 dark:border-gray-700 p-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Post Title
+            </span>
+          </div>
+          <textarea
+            rows={1}
+            value={post.title || ""}
+            onChange={(e) => {
+              setPost((prev) => ({ ...prev, title: e.target.value }));
+              e.target.style.height = "auto";
+              e.target.style.height = e.target.scrollHeight + "px";
+            }}
+            className="w-full text-4xl font-extrabold tracking-tight bg-transparent border-0 resize-none focus:ring-0 focus:outline-none p-4 overflow-hidden text-gray-900 dark:text-white"
+            placeholder="Enter post title..."
+            style={{ minHeight: "4rem" }}
+          />
+        </div>
 
-        {/* Featured Image */}
-        <FeaturedImageUploader post={post} setPost={setPost} />
+        {/* Featured Image Block */}
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
+          <div className="border-b border-gray-200 dark:border-gray-700 p-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Featured Image
+            </span>
+          </div>
+          <div className="p-4">
+            <FeaturedImageUploader post={post} setPost={setPost} />
+          </div>
+        </div>
 
         {/* Content Blocks */}
         <div className="py-4 relative space-y-4">

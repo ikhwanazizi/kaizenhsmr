@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import { UploadCloud, X } from "lucide-react";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/supabase";
-import { compressImage } from "../utils/image-compressor"; // <-- Import the new utility
+import { compressImage } from "../utils/image-compressor";
 
 type Post = Database["public"]["Tables"]["posts"]["Row"];
 
@@ -37,19 +37,16 @@ export default function FeaturedImageUploader({
     setIsUploading(true);
 
     try {
-      // --- IMAGE COMPRESSION STEP ---
       const compressedFile = await compressImage(file, {
         maxWidth: 1920,
         quality: 0.7,
       });
-      const fileName = `${Date.now()}.webp`; // Create a unique name with .webp extension
+      const fileName = `${Date.now()}.webp`;
       const filePath = `public/${post.id}/${fileName}`;
-      // -----------------------------
 
       const { data, error: uploadError } = await supabase.storage
         .from("post-images")
         .upload(filePath, compressedFile, {
-          // <-- Upload the compressed file
           cacheControl: "3600",
           upsert: true,
         });
@@ -79,15 +76,16 @@ export default function FeaturedImageUploader({
 
   return (
     <div className="space-y-4">
-      <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/png, image/jpeg, image/webp"
-          className="hidden"
-        />
-        {post.featured_image ? (
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/png, image/jpeg, image/webp"
+        className="hidden"
+      />
+
+      {post.featured_image ? (
+        <div className="space-y-3">
           <div className="relative group">
             <img
               src={post.featured_image}
@@ -96,58 +94,55 @@ export default function FeaturedImageUploader({
             />
             <button
               onClick={handleRemoveImage}
-              className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
               title="Remove image"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           </div>
-        ) : (
-          <div
-            className="text-center cursor-pointer py-8"
-            onClick={() => !isUploading && fileInputRef.current?.click()}
-          >
-            <div className="flex justify-center items-center">
-              <UploadCloud className="w-12 h-12 text-gray-400" />
-            </div>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-semibold text-blue-600 dark:text-blue-400">
-                Click to upload a banner
-              </span>
-            </p>
-            <p className="text-xs text-gray-500">
-              Recommended size: 1920x1080px
-            </p>
-            {isUploading && (
-              <p className="mt-2 text-sm animate-pulse">
-                Compressing & Uploading...
-              </p>
-            )}
-            {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+
+          <div>
+            <label
+              htmlFor="featured_image_alt"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              Alt Text for Image
+            </label>
+            <input
+              type="text"
+              id="featured_image_alt"
+              value={post.featured_image_alt || ""}
+              onChange={(e) =>
+                setPost((prev) => ({
+                  ...prev,
+                  featured_image_alt: e.target.value,
+                }))
+              }
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-white"
+              placeholder="A brief description of the image"
+            />
           </div>
-        )}
-      </div>
-      {post.featured_image && (
-        <div>
-          <label
-            htmlFor="featured_image_alt"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Alt Text for Image
-          </label>
-          <input
-            type="text"
-            id="featured_image_alt"
-            value={post.featured_image_alt || ""}
-            onChange={(e) =>
-              setPost((prev) => ({
-                ...prev,
-                featured_image_alt: e.target.value,
-              }))
-            }
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-900 dark:border-gray-600 dark:text-white"
-            placeholder="A brief description of the image"
-          />
+        </div>
+      ) : (
+        <div
+          className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
+          onClick={() => !isUploading && fileInputRef.current?.click()}
+        >
+          <div className="flex justify-center items-center">
+            <UploadCloud className="w-12 h-12 text-gray-400" />
+          </div>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            <span className="font-semibold text-blue-600 dark:text-blue-400">
+              Click to upload a banner
+            </span>
+          </p>
+          <p className="text-xs text-gray-500">Recommended size: 1920x1080px</p>
+          {isUploading && (
+            <p className="mt-2 text-sm animate-pulse">
+              Compressing & Uploading...
+            </p>
+          )}
+          {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
         </div>
       )}
     </div>
