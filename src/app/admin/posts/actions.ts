@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/types/supabase";
+import { nanoid } from "nanoid"; // --- MODIFICATION: Imported nanoid ---
 
 async function createClient() {
   const cookieStore = await cookies();
@@ -19,15 +20,8 @@ async function createClient() {
   );
 }
 
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
+// --- MODIFICATION: Removed the old server-side generateSlug function ---
+// The slug is now generated and managed on the client in step-2-seo.tsx
 
 export async function createPost(category: "blog" | "development") {
   const supabase = await createClient();
@@ -40,14 +34,17 @@ export async function createPost(category: "blog" | "development") {
     return { success: false, message: "Not authenticated" };
   }
 
+  // --- MODIFICATION: Switched from Date.now() to nanoid ---
   const defaultTitle = "Untitled Post";
-  const initialSlug = `${generateSlug(defaultTitle)}-${Date.now()}`;
+  const newShortId = nanoid(8); // Generates a unique 8-character ID (e.g., 'k4fT9aP')
+  const initialSlug = `untitled-post-${newShortId}`;
 
   const { data, error } = await supabase
     .from("posts")
     .insert({
       title: defaultTitle,
       slug: initialSlug,
+      short_id: newShortId, // Save the new alphanumeric ID to the database
       category: category,
       author_id: user.id,
       status: "draft",

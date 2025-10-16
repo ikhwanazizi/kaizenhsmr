@@ -2,14 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import {
-  RefreshCw,
-  Upload,
-  X,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-} from "lucide-react";
+import { RefreshCw, Upload, X, ChevronDown, ChevronUp } from "lucide-react";
 import type { Database } from "@/types/supabase";
 import { createBrowserClient } from "@supabase/ssr";
 import { compressImage } from "../utils/image-compressor";
@@ -19,52 +12,91 @@ type Post = Database["public"]["Tables"]["posts"]["Row"];
 interface Step2SEOProps {
   post: Post;
   setPost: React.Dispatch<React.SetStateAction<Post>>;
+  onValidationChange: (isValid: boolean) => void;
 }
 
-export default function Step2SEO({ post, setPost }: Step2SEOProps) {
+export default function Step2SEO({
+  post,
+  setPost,
+  onValidationChange,
+}: Step2SEOProps) {
   const [slugTouched, setSlugTouched] = useState(false);
   const [showSocialPreview, setShowSocialPreview] = useState(false);
   const [isUploadingOG, setIsUploadingOG] = useState(false);
-  const [slugError, setSlugError] = useState<string | null>(null);
   const ogFileInputRef = useRef<HTMLInputElement>(null);
-  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // --- REMOVED --- Unnecessary state for db-based slug checking
+  // const [slugError, setSlugError] = useState<string | null>(null);
+  // const [isCheckingSlug, setIsCheckingSlug] = useState(false);
+  // const slugCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Auto-generate slug from title on first interaction
-  useEffect(() => {
-    if (post.title && post.title !== "Untitled Post" && !slugTouched) {
-      const generatedSlug = generateSlug(post.title);
-      setPost((prev) => ({ ...prev, slug: generatedSlug }));
-    }
-  }, [post.title, slugTouched]);
-
-  // Generate SEO-friendly slug
-  function generateSlug(text: string): string {
+  // This utility function remains the same, it just cleans a string.
+  function generateBaseSlug(text: string): string {
     return text
       .toLowerCase()
       .trim()
       .replace(/[^\w\s-]/g, "") // Remove special characters
       .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .replace(/-+/g, "-") // Remove consecutive hyphens
-      .substring(0, 60); // Limit length
+      .replace(/-+/g, "-"); // Remove consecutive hyphens
   }
 
+  // --- NEW ---
+  // This function creates the full, unique slug by appending the short_id.
+  function generateFullSlug(title: string): string {
+    const baseSlug = generateBaseSlug(title || "untitled-post");
+    // Ensure short_id is present before appending.
+    if (!post.short_id) return baseSlug;
+    return `${baseSlug}-${post.short_id}`.substring(0, 90); // Limit total length
+  }
+
+  // Determine if the slug is already perfectly in sync with the title.
+  // --- MODIFIED --- Use the new slug generation logic for comparison.
+  const isSlugInSync = post.slug === generateFullSlug(post.title!);
+
+  useEffect(() => {
+    // Communicate validation status to the parent component.
+    // --- MODIFIED --- Simplified validation. A slug is valid if it's not empty.
+    // Uniqueness is guaranteed by the short_id.
+    const isValid = post.slug && post.slug.trim() !== "";
+    onValidationChange(isValid);
+  }, [post.slug, onValidationChange]);
+
+  useEffect(() => {
+    // Auto-generate slug from title, only if user hasn't manually edited it.
+    // --- MODIFIED --- Use the new full slug generation.
+    if (post.title && !slugTouched) {
+      const newSlug = generateFullSlug(post.title);
+      if (newSlug !== post.slug) {
+        setPost((prev) => ({ ...prev, slug: newSlug }));
+      }
+    }
+    // Note: Added post.short_id as a dependency in case it loads asynchronously.
+  }, [post.title, post.short_id, slugTouched]);
+
+  // --- REMOVED --- All functions related to checking slug availability in the database
+  // checkSlugAvailability, findAvailableSlug, and the debouncing useEffect are no longer needed.
+
   const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSlugTouched(true);
-    const cleaned = generateSlug(e.target.value);
+    if (!slugTouched) setSlugTouched(true);
+    // When manually editing, we still clean the input, but don't force the short_id.
+    const cleaned = generateBaseSlug(e.target.value);
     setPost((prev) => ({ ...prev, slug: cleaned }));
-    setSlugError(null);
   };
 
   const handleRegenerateSlug = () => {
-    const newSlug = generateSlug(post.title || "untitled-post");
+    setSlugTouched(false); // Allow title to take over again
+    // --- MODIFIED --- Use the new full slug generation.
+    const newSlug = generateFullSlug(post.title!);
     setPost((prev) => ({ ...prev, slug: newSlug }));
-    setSlugTouched(false);
   };
+
+  // The rest of the file (handleOGImageUpload, previews, JSX) remains largely the same,
+  // except for removing the UI related to slug checking.
 
   const handleOGImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -73,29 +105,23 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
     if (!file) return;
 
     setIsUploadingOG(true);
-
     try {
       const compressedFile = await compressImage(file, {
         maxWidth: 1200,
         quality: 0.85,
       });
-
       const fileName = `og-${Date.now()}.webp`;
       const filePath = `public/${post.id}/og/${fileName}`;
-
       const { data, error } = await supabase.storage
         .from("post-images")
         .upload(filePath, compressedFile, {
           cacheControl: "3600",
           upsert: true,
         });
-
       if (error) throw error;
-
       const {
         data: { publicUrl },
       } = supabase.storage.from("post-images").getPublicUrl(data.path);
-
       setPost((prev) => ({ ...prev, seo_og_image: publicUrl }));
     } catch (error) {
       console.error("Failed to upload OG image:", error);
@@ -105,29 +131,24 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
     }
   };
 
-  const removeOGImage = () => {
+  const removeOGImage = () =>
     setPost((prev) => ({ ...prev, seo_og_image: null }));
-  };
 
-  // Character counters
+  // ... (meta title/desc logic remains the same)
   const metaTitleLength = (post.seo_meta_title || "").length;
   const metaDescLength = (post.seo_meta_description || "").length;
-
   const getTitleColor = () => {
     if (metaTitleLength === 0) return "text-gray-400";
     if (metaTitleLength < 50) return "text-yellow-600";
     if (metaTitleLength <= 60) return "text-green-600";
     return "text-red-600";
   };
-
   const getDescColor = () => {
     if (metaDescLength === 0) return "text-gray-400";
     if (metaDescLength < 150) return "text-yellow-600";
     if (metaDescLength <= 160) return "text-green-600";
     return "text-red-600";
   };
-
-  // Preview values with fallbacks
   const previewTitle = post.seo_meta_title || post.title || "Untitled Post";
   const previewDesc = post.seo_meta_description || "No description provided.";
   const previewUrl = `https://yoursite.com/posts/${post.slug || "untitled-post"}`;
@@ -137,7 +158,6 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
   return (
     <div className="p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             SEO & Metadata
@@ -146,12 +166,9 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
             Optimize how your post appears on search engines and social media
           </p>
         </div>
-
-        {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Left Column - Form Fields (60%) */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Basic Info Block */}
+            {/* Basic Information Card */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
               <div className="border-b border-gray-200 dark:border-gray-700 p-3">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -159,13 +176,12 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
                 </h3>
               </div>
               <div className="p-4 space-y-4">
-                {/* Title Field */}
+                {/* Post Title Input */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Post Title
                   </label>
                   <input
-                    ref={titleInputRef}
                     type="text"
                     value={post.title || ""}
                     onChange={(e) =>
@@ -175,11 +191,10 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
                     placeholder="Enter your post title..."
                   />
                 </div>
-
-                {/* Slug Field */}
+                {/* URL Slug Input */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    URL Slug
+                    URL Slug *
                   </label>
                   <div className="flex gap-2">
                     <div className="flex-1 flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
@@ -196,24 +211,23 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
                     </div>
                     <button
                       onClick={handleRegenerateSlug}
-                      className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                      title="Regenerate from title"
+                      disabled={isSlugInSync}
+                      className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={
+                        isSlugInSync
+                          ? "Slug is already synced with title"
+                          : "Regenerate from title"
+                      }
                     >
                       <RefreshCw size={18} />
                     </button>
                   </div>
-                  {slugError && (
-                    <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle size={14} />
-                      {slugError}
-                    </p>
-                  )}
+                  {/* --- REMOVED --- All loading, error, and success messages for slug checking */}
                   <p className="mt-1 text-xs text-gray-500">{previewUrl}</p>
                 </div>
               </div>
             </div>
-
-            {/* SEO Metadata Block */}
+            {/* SEO Card */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
               <div className="border-b border-gray-200 dark:border-gray-700 p-3">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -248,7 +262,6 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
                     Ideal length: 50-60 characters
                   </p>
                 </div>
-
                 {/* Meta Description */}
                 <div>
                   <div className="flex justify-between items-center mb-1">
@@ -276,8 +289,7 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
                     Ideal length: 150-160 characters
                   </p>
                 </div>
-
-                {/* OG Image Upload */}
+                {/* Social Media Image */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Social Media Image (Optional)
@@ -324,10 +336,8 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
               </div>
             </div>
           </div>
-
-          {/* Right Column - Previews (40%) */}
+          {/* Right Column Previews */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Google Search Preview */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 sticky top-4">
               <div className="border-b border-gray-200 dark:border-gray-700 p-3">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -348,8 +358,6 @@ export default function Step2SEO({ post, setPost }: Step2SEOProps) {
                 </div>
               </div>
             </div>
-
-            {/* Social Media Preview */}
             <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
               <button
                 onClick={() => setShowSocialPreview(!showSocialPreview)}

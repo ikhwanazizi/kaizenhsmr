@@ -426,6 +426,7 @@ export type Database = {
           seo_meta_description: string | null
           seo_meta_title: string | null
           seo_og_image: string | null
+          short_id: string | null
           slug: string
           status: string | null
           title: string
@@ -449,6 +450,7 @@ export type Database = {
           seo_meta_description?: string | null
           seo_meta_title?: string | null
           seo_og_image?: string | null
+          short_id?: string | null
           slug: string
           status?: string | null
           title: string
@@ -472,6 +474,7 @@ export type Database = {
           seo_meta_description?: string | null
           seo_meta_title?: string | null
           seo_og_image?: string | null
+          short_id?: string | null
           slug?: string
           status?: string | null
           title?: string

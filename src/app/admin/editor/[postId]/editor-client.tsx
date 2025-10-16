@@ -1,4 +1,3 @@
-// src/app/admin/editor/[postId]/editor-client.tsx
 "use client";
 
 import { useState, useRef } from "react";
@@ -33,8 +32,8 @@ export default function EditorClient({
   );
   const [post, setPost] = useState<Post>(initialPost);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSlugValid, setIsSlugValid] = useState(true); // To track slug validity from child
 
-  // Ref to get the current blocks from Step3Content
   const getEditorContentRef = useRef<(() => any) | undefined>(undefined);
 
   const handleSelectCategory = async (category: "blog" | "development") => {
@@ -56,6 +55,12 @@ export default function EditorClient({
       if (!post.slug || post.slug.trim() === "") {
         errors.push("URL slug is required");
       }
+      // New check for real-time slug validity
+      if (!isSlugValid) {
+        errors.push(
+          "URL slug is already taken. Please choose a different one."
+        );
+      }
       if (!post.seo_meta_title || post.seo_meta_title.trim() === "") {
         errors.push("Meta title is required");
       }
@@ -67,9 +72,7 @@ export default function EditorClient({
       }
 
       if (errors.length > 0) {
-        alert(
-          "Please fill in all required SEO fields:\n\n" + errors.join("\n")
-        );
+        alert("Please fix the following issues:\n\n" + errors.join("\n"));
         setIsSaving(false);
         return;
       }
@@ -79,12 +82,10 @@ export default function EditorClient({
     let success = false;
 
     if (currentStep === 2) {
-      // Save SEO & Metadata
       const result = await updatePostDetails(post.id, post);
       if (result.success) setCurrentStep(3);
       success = result.success;
     } else if (currentStep === 3) {
-      // Save Content
       const editorData = getEditorContentRef.current?.();
       if (editorData && editorData.blocks) {
         const blocksToSave = editorData.blocks.map((block: PostBlock) => ({
@@ -111,7 +112,6 @@ export default function EditorClient({
         success = false;
       }
     } else if (currentStep === 4) {
-      // Publish the post
       const result = await publishPost(post.id);
       if (result.success) {
         alert("Post published successfully!");
@@ -136,7 +136,7 @@ export default function EditorClient({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md min-h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <StepIndicator
           steps={STEPS}
           currentStep={currentStep}
@@ -152,7 +152,13 @@ export default function EditorClient({
             isSaving={isSaving}
           />
         )}
-        {currentStep === 2 && <Step2SEO post={post} setPost={setPost} />}
+        {currentStep === 2 && (
+          <Step2SEO
+            post={post}
+            setPost={setPost}
+            onValidationChange={setIsSlugValid}
+          />
+        )}
         {currentStep === 3 && (
           <Step3Content
             post={post}
@@ -180,7 +186,7 @@ export default function EditorClient({
           </button>
           <button
             onClick={handleNext}
-            disabled={isSaving}
+            disabled={isSaving || (currentStep === 2 && !isSlugValid)}
             className={`px-6 py-2 text-white rounded-lg transition-colors disabled:opacity-50 ${
               currentStep === STEPS.length
                 ? "bg-green-600 hover:bg-green-700"
