@@ -50,6 +50,31 @@ export default function EditorClient({
   };
 
   const handleNext = async () => {
+    // Validate Step 2 before proceeding
+    if (currentStep === 2) {
+      const errors = [];
+      if (!post.slug || post.slug.trim() === "") {
+        errors.push("URL slug is required");
+      }
+      if (!post.seo_meta_title || post.seo_meta_title.trim() === "") {
+        errors.push("Meta title is required");
+      }
+      if (
+        !post.seo_meta_description ||
+        post.seo_meta_description.trim() === ""
+      ) {
+        errors.push("Meta description is required");
+      }
+
+      if (errors.length > 0) {
+        alert(
+          "Please fill in all required SEO fields:\n\n" + errors.join("\n")
+        );
+        setIsSaving(false);
+        return;
+      }
+    }
+
     setIsSaving(true);
     let success = false;
 
