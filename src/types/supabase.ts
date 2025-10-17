@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -536,6 +561,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_short_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_all_users_with_profiles: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -698,6 +727,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       newsletter_status: ["subscribed", "unverified", "unsubscribed"],
