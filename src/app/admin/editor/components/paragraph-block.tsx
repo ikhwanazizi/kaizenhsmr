@@ -77,7 +77,7 @@ export default function ParagraphBlock({
       Underline,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({
-        types: ["paragraph"],
+        types: ["heading", "paragraph", "tableCell", "tableHeader"],
       }),
       Table.configure({
         resizable: true,
@@ -90,7 +90,7 @@ export default function ParagraphBlock({
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[60px] px-4 py-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:list-outside [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:list-outside [&_li]:my-1 [&_table]:my-4 [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_th]:font-bold [&_th]:bg-gray-100 dark:[&_th]:bg-gray-700",
+          "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[60px] px-4 py-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:list-outside [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:list-outside [&_li]:my-1 [&_table]:my-4 [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_th]:font-bold [&_th]:bg-gray-100 dark:[&_th]:bg-gray-700 select-text",
       },
     },
     onUpdate: ({ editor }) => {

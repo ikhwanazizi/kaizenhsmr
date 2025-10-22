@@ -14,7 +14,7 @@ const ImageBlock = dynamic(() => import("./image-block"));
 const VideoBlock = dynamic(() => import("./video-block"));
 const QuoteBlock = dynamic(() => import("./quote-block"));
 const CodeBlock = dynamic(() => import("./code-block"));
-import { DndContext, closestCenter, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, DragEndEvent, MouseSensor, TouchSensor, KeyboardSensor, useSensor, useSensors } from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -56,6 +56,21 @@ export default function Step3Content({
       return { blocks }; // Return current blocks state
     };
   }, [blocks, getEditorJSON]);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 10,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
 
   const handleAddBlock = (
     type:
@@ -405,6 +420,7 @@ export default function Step3Content({
         {/* Content Blocks */}
         <div className="py-4 relative space-y-4">
           <DndContext
+            sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
           >
