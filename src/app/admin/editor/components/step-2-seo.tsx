@@ -25,17 +25,11 @@ export default function Step2SEO({
   const [isUploadingOG, setIsUploadingOG] = useState(false);
   const ogFileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- REMOVED --- Unnecessary state for db-based slug checking
-  // const [slugError, setSlugError] = useState<string | null>(null);
-  // const [isCheckingSlug, setIsCheckingSlug] = useState(false);
-  // const slugCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // This utility function remains the same, it just cleans a string.
   function generateBaseSlug(text: string): string {
     return text
       .toLowerCase()
@@ -45,58 +39,39 @@ export default function Step2SEO({
       .replace(/-+/g, "-"); // Remove consecutive hyphens
   }
 
-  // --- NEW ---
-  // This function creates the full, unique slug by appending the short_id.
   function generateFullSlug(title: string): string {
     const baseSlug = generateBaseSlug(title || "untitled-post");
-    // Ensure short_id is present before appending.
     if (!post.short_id) return baseSlug;
     return `${baseSlug}-${post.short_id}`.substring(0, 90); // Limit total length
   }
 
-  // Determine if the slug is already perfectly in sync with the title.
-  // --- MODIFIED --- Use the new slug generation logic for comparison.
   const isSlugInSync = post.slug === generateFullSlug(post.title!);
 
   useEffect(() => {
-    // Communicate validation status to the parent component.
-    // --- MODIFIED --- Simplified validation. A slug is valid if it's not empty.
-    // Uniqueness is guaranteed by the short_id.
     const isValid = post.slug && post.slug.trim() !== "";
     onValidationChange(isValid);
   }, [post.slug, onValidationChange]);
 
   useEffect(() => {
-    // Auto-generate slug from title, only if user hasn't manually edited it.
-    // --- MODIFIED --- Use the new full slug generation.
     if (post.title && !slugTouched) {
       const newSlug = generateFullSlug(post.title);
       if (newSlug !== post.slug) {
         setPost((prev) => ({ ...prev, slug: newSlug }));
       }
     }
-    // Note: Added post.short_id as a dependency in case it loads asynchronously.
   }, [post.title, post.short_id, slugTouched]);
-
-  // --- REMOVED --- All functions related to checking slug availability in the database
-  // checkSlugAvailability, findAvailableSlug, and the debouncing useEffect are no longer needed.
 
   const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!slugTouched) setSlugTouched(true);
-    // When manually editing, we still clean the input, but don't force the short_id.
     const cleaned = generateBaseSlug(e.target.value);
     setPost((prev) => ({ ...prev, slug: cleaned }));
   };
 
   const handleRegenerateSlug = () => {
-    setSlugTouched(false); // Allow title to take over again
-    // --- MODIFIED --- Use the new full slug generation.
+    setSlugTouched(false);
     const newSlug = generateFullSlug(post.title!);
     setPost((prev) => ({ ...prev, slug: newSlug }));
   };
-
-  // The rest of the file (handleOGImageUpload, previews, JSX) remains largely the same,
-  // except for removing the UI related to slug checking.
 
   const handleOGImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -134,7 +109,7 @@ export default function Step2SEO({
   const removeOGImage = () =>
     setPost((prev) => ({ ...prev, seo_og_image: null }));
 
-  // ... (meta title/desc logic remains the same)
+  // --- ALL YOUR ORIGINAL FUNCTIONS ARE PRESERVED HERE ---
   const metaTitleLength = (post.seo_meta_title || "").length;
   const metaDescLength = (post.seo_meta_description || "").length;
   const getTitleColor = () => {
@@ -149,11 +124,16 @@ export default function Step2SEO({
     if (metaDescLength <= 160) return "text-green-600";
     return "text-red-600";
   };
+  
+  // --- THIS IS THE EXACT BLOCK YOU ASKED FOR, INTEGRATED ---
   const previewTitle = post.seo_meta_title || post.title || "Untitled Post";
   const previewDesc = post.seo_meta_description || "No description provided.";
-  const previewUrl = `https://yoursite.com/posts/${post.slug || "untitled-post"}`;
+  // Dynamic URL based on category
+  const categoryPath = post.category === "blog" ? "blog-articles" : "developments";
+  const previewUrl = `https://yoursite.com/${categoryPath}/${post.slug || "untitled-post"}`;
   const previewImage =
     post.seo_og_image || post.featured_image || "/placeholder-og.png";
+  // --- END OF THE INTEGRATED BLOCK ---
 
   return (
     <div className="p-4 md:p-8">
@@ -198,8 +178,9 @@ export default function Step2SEO({
                   </label>
                   <div className="flex gap-2">
                     <div className="flex-1 flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                      {/* --- AND HERE IS THE VISUAL PREFIX UPDATE --- */}
                       <span className="inline-flex items-center px-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm border-r border-gray-300 dark:border-gray-600">
-                        /posts/
+                        /{categoryPath}/
                       </span>
                       <input
                         type="text"
@@ -222,7 +203,6 @@ export default function Step2SEO({
                       <RefreshCw size={18} />
                     </button>
                   </div>
-                  {/* --- REMOVED --- All loading, error, and success messages for slug checking */}
                   <p className="mt-1 text-xs text-gray-500">{previewUrl}</p>
                 </div>
               </div>

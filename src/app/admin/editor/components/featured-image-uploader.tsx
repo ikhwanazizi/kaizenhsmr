@@ -6,6 +6,7 @@ import { UploadCloud, X } from "lucide-react";
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/supabase";
 import { compressImage } from "../utils/image-compressor";
+import { updatePostDetails } from "../../posts/actions"; // 1. Import the server action
 
 type Post = Database["public"]["Tables"]["posts"]["Row"];
 
@@ -57,7 +58,16 @@ export default function FeaturedImageUploader({
         data: { publicUrl },
       } = supabase.storage.from("post-images").getPublicUrl(data.path);
 
-      setPost((prev) => ({ ...prev, featured_image: publicUrl }));
+      // 2. Update the database first
+      const result = await updatePostDetails(post.id, { featured_image: publicUrl });
+
+      if (result.success) {
+        // 3. On successful database update, update the local state
+        setPost((prev) => ({ ...prev, featured_image: publicUrl }));
+      } else {
+        throw new Error(result.message || "Failed to save image URL.");
+      }
+
     } catch (e: any) {
       setError("Failed to upload image. Please try again.");
       console.error(e);
@@ -66,12 +76,19 @@ export default function FeaturedImageUploader({
     }
   };
 
-  const handleRemoveImage = () => {
-    setPost((prev) => ({
-      ...prev,
-      featured_image: null,
-      featured_image_alt: null,
-    }));
+  const handleRemoveImage = async () => {
+    // 4. Also update the database when removing an image
+    const result = await updatePostDetails(post.id, { featured_image: null, featured_image_alt: null });
+    
+    if (result.success) {
+      setPost((prev) => ({
+        ...prev,
+        featured_image: null,
+        featured_image_alt: null,
+      }));
+    } else {
+      alert("Failed to remove image. Please try again.");
+    }
   };
 
   return (
