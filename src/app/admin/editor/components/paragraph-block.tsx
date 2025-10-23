@@ -73,14 +73,14 @@ export default function ParagraphBlock({
           class: "text-blue-600 underline hover:text-blue-700",
         },
         // ✅ FIX: Validate that href is always saved
-        validate: href => /^https?:\/\//.test(href),
+        validate: (href) => /^https?:\/\//.test(href),
       }),
       Underline,
-      Highlight.configure({ 
+      Highlight.configure({
         multicolor: true,
         // ✅ FIX: Enable highlight for tables
         HTMLAttributes: {
-          class: 'bg-yellow-200 dark:bg-yellow-800',
+          class: "bg-yellow-200 dark:bg-yellow-800",
         },
       }),
       TextAlign.configure({
@@ -90,7 +90,7 @@ export default function ParagraphBlock({
         resizable: true,
         // ✅ FIX: Enable all features in table cells
         HTMLAttributes: {
-          class: 'border-collapse w-full',
+          class: "border-collapse w-full",
         },
       }),
       TableRow,
@@ -113,10 +113,10 @@ export default function ParagraphBlock({
     if (linkUrl && editor) {
       // ✅ FIX: Ensure https:// prefix
       let url = linkUrl.trim();
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url;
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        url = "https://" + url;
       }
-      
+
       editor
         .chain()
         .focus()
