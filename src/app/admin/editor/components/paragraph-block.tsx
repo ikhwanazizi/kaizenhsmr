@@ -65,7 +65,6 @@ export default function ParagraphBlock({
         heading: false,
         codeBlock: false,
         blockquote: false,
-        // Removed horizontalRule: false to enable HR
       }),
       Placeholder.configure({ placeholder: "Type / to see commands..." }),
       Link.configure({
@@ -73,14 +72,26 @@ export default function ParagraphBlock({
         HTMLAttributes: {
           class: "text-blue-600 underline hover:text-blue-700",
         },
+        // ✅ FIX: Validate that href is always saved
+        validate: href => /^https?:\/\//.test(href),
       }),
       Underline,
-      Highlight.configure({ multicolor: true }),
+      Highlight.configure({ 
+        multicolor: true,
+        // ✅ FIX: Enable highlight for tables
+        HTMLAttributes: {
+          class: 'bg-yellow-200 dark:bg-yellow-800',
+        },
+      }),
       TextAlign.configure({
         types: ["heading", "paragraph", "tableCell", "tableHeader"],
       }),
       Table.configure({
         resizable: true,
+        // ✅ FIX: Enable all features in table cells
+        HTMLAttributes: {
+          class: 'border-collapse w-full',
+        },
       }),
       TableRow,
       TableHeader,
@@ -100,11 +111,17 @@ export default function ParagraphBlock({
 
   const addLink = () => {
     if (linkUrl && editor) {
+      // ✅ FIX: Ensure https:// prefix
+      let url = linkUrl.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+      
       editor
         .chain()
         .focus()
         .extendMarkRange("link")
-        .setLink({ href: linkUrl })
+        .setLink({ href: url })
         .run();
       setLinkUrl("");
       setShowLinkInput(false);

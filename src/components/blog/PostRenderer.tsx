@@ -4,7 +4,6 @@
 import { useEffect, useState } from "react";
 import Prism from "prismjs";
 import "prismjs/themes/prism-tomorrow.css";
-// Import language dependencies in the correct order
 import "prismjs/components/prism-c";
 import "prismjs/components/prism-cpp";
 import "prismjs/components/prism-javascript";
@@ -21,7 +20,7 @@ type Block = {
   order_index: number;
 };
 
-// ✅ FIX: Enhanced function to handle more Tiptap node types and marks, including tables, alignments, and additional formatting
+// ✅ FIXED: Enhanced function to handle links, highlights, and all marks correctly
 const renderTiptapContent = (node: any): string => {
     if (!node) return '';
 
@@ -49,15 +48,17 @@ const renderTiptapContent = (node: any): string => {
                         html = `<code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">${html}</code>`;
                         break;
                     case 'highlight':
+                        // ✅ FIX: Properly render highlights with color
                         if (mark.attrs && mark.attrs.color) {
                             html = `<mark style="background-color: ${mark.attrs.color};">${html}</mark>`;
                         } else {
-                            html = `<mark>${html}</mark>`;
+                            html = `<mark class="bg-yellow-200">${html}</mark>`;
                         }
                         break;
                     case 'link':
+                        // ✅ FIX: Properly render links with href
                         if (mark.attrs && mark.attrs.href) {
-                            html = `<a href="${mark.attrs.href}" class="text-[#008080] hover:underline" target="_blank" rel="noopener noreferrer">${html}</a>`;
+                            html = `<a href="${mark.attrs.href}" class="text-[#008080] hover:text-[#006666] font-medium" target="_blank" rel="noopener noreferrer">${html}</a>`;
                         }
                         break;
                 }
@@ -69,9 +70,12 @@ const renderTiptapContent = (node: any): string => {
     if (node.content) {
         const children = node.content.map(renderTiptapContent).join('');
         let styleAttr = '';
+        
+        // ✅ FIX: Apply text alignment from attrs
         if (node.attrs && node.attrs.textAlign) {
             styleAttr = ` style="text-align: ${node.attrs.textAlign};"`;
         }
+        
         switch (node.type) {
             case 'paragraph':
                 html = `<p class="mb-4"${styleAttr}>${children}</p>`;
@@ -89,22 +93,24 @@ const renderTiptapContent = (node: any): string => {
                 html = '<hr class="my-8 border-t border-gray-300">';
                 break;
             case 'table':
-                html = `<table class="w-full border-collapse border border-gray-300">${children}</table>`;
+                html = `<div class="overflow-x-auto my-8"><table class="w-full border-collapse border border-gray-300">${children}</table></div>`;
                 break;
             case 'tableRow':
                 html = `<tr class="border-b border-gray-300 last:border-b-0">${children}</tr>`;
                 break;
             case 'tableHeader':
-                html = `<th class="border border-gray-300 p-3 text-left bg-gray-100 font-semibold"${styleAttr}>${children}</th>`;
+                // ✅ FIX: Apply text alignment to table headers
+                html = `<th class="border border-gray-300 p-3 bg-gray-100 font-semibold"${styleAttr}>${children}</th>`;
                 break;
             case 'tableCell':
-                html = `<td class="border border-gray-300 p-3 text-left"${styleAttr}>${children}</td>`;
+                // ✅ FIX: Apply text alignment to table cells
+                html = `<td class="border border-gray-300 p-3"${styleAttr}>${children}</td>`;
                 break;
-            case 'doc': // The root node for a block
+            case 'doc':
                 html = children;
                 break;
             default:
-                html = children; // Render children for any other node type
+                html = children;
         }
     }
     
@@ -157,7 +163,7 @@ export default function PostRenderer({ blocks }: { blocks: Block[] }) {
             }
 
             case "paragraph":
-            case "table": // ✅ FIX: Now handles tables via renderTiptapContent
+            case "table":
                 return (
                     <div
                         className="prose prose-lg max-w-none text-gray-700 leading-relaxed mb-6"
