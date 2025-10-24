@@ -1,3 +1,4 @@
+// src/app/admin/editor/[postId]/editor-client.tsx
 "use client";
 
 import { useState, useRef } from "react";

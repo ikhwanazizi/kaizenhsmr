@@ -18,7 +18,12 @@ export default function Step4Review({ post, blocks }: Step4ReviewProps) {
   // Create a read-only editor instance to display the content
   const editor = useEditor({
     editable: false,
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit.configure({
+        underline: false,
+        link: false,
+      }),
+    ],
     content: convertDbBlocksToTiptap(blocks),
     editorProps: {
       attributes: {

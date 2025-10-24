@@ -1,23 +1,23 @@
-// src/app/admin/editor/utils/converters.ts
 import type { Database } from "@/types/supabase";
 import { JSONContent } from "@tiptap/react";
 
 type PostBlock = Database["public"]["Tables"]["post_blocks"]["Row"];
 
-// Converts TipTap's JSON format into an array of blocks for our database.
+/**
+ * ✅ Convert TipTap JSON → Database Blocks
+ * Preserves link marks with href attributes.
+ */
 export function convertTiptapToDbBlocks(
   postId: string,
   editorJSON: JSONContent
 ): Omit<PostBlock, "id" | "created_at" | "updated_at">[] {
-  if (!editorJSON.content) {
-    return [];
-  }
+  if (!editorJSON.content) return [];
 
   const blocks: Omit<PostBlock, "id" | "created_at" | "updated_at">[] = [];
 
   editorJSON.content.forEach((node, index) => {
     let blockType: PostBlock["type"] | null = null;
-    let content: PostBlock["content"] = {};
+    let content: any = {};
 
     switch (node.type) {
       case "heading":
@@ -27,18 +27,45 @@ export function convertTiptapToDbBlocks(
           text: node.content?.[0]?.text || "",
         };
         break;
+
       case "paragraph":
         blockType = "paragraph";
-        content = { text: node.content || [] };
+        content = {
+          text: node.content?.map((child) => {
+            if (child.type === "text") {
+              const textNode: any = {
+                type: "text",
+                text: child.text,
+              };
+
+              // ✅ Preserve link marks
+              if (child.marks && child.marks.length > 0) {
+                textNode.marks = child.marks.map((mark: any) => {
+                  if (mark.type === "link" && mark.attrs?.href) {
+                    return {
+                      type: "link",
+                      attrs: { href: mark.attrs.href },
+                    };
+                  }
+                  return mark;
+                });
+              }
+
+              return textNode;
+            }
+            return child;
+          }) || [],
+        };
         break;
-      // Add cases for other block types (list, quote, etc.) here later
+
+      // Add other block types (quote, list, image, etc.) later
     }
 
     if (blockType) {
       blocks.push({
         post_id: postId,
         type: blockType,
-        content: content,
+        content,
         order_index: index,
       });
     }
@@ -47,36 +74,60 @@ export function convertTiptapToDbBlocks(
   return blocks;
 }
 
-// Converts our database blocks into a single TipTap JSON document.
+/**
+ * ✅ Convert Database Blocks → TipTap JSON
+ * Reconstructs full TipTap document with preserved link hrefs.
+ */
 export function convertDbBlocksToTiptap(blocks: PostBlock[]): JSONContent {
-  const tiptapContent: JSONContent[] = blocks
+  const tiptapContent = blocks
     .sort((a, b) => a.order_index - b.order_index)
-    .map((block) => {
-      let node: JSONContent | null = null;
-      const blockContent = block.content as any;
+    .map((block): JSONContent | null => {
+      const content = block.content as any;
 
       switch (block.type) {
         case "heading":
-          node = {
+          return {
             type: "heading",
-            attrs: { level: blockContent.level },
-            content: [{ type: "text", text: blockContent.text }],
+            attrs: { level: content.level },
+            content: [{ type: "text", text: content.text }],
           };
-          break;
-        case "paragraph":
-          node = {
-            type: "paragraph",
-            content: blockContent.text || [],
-          };
-          break;
-        // Add cases for other block types here later
-      }
-      return node;
-    })
-    .filter((n): n is JSONContent => n !== null);
 
-  return {
-    type: "doc",
-    content: tiptapContent,
-  };
+        case "paragraph":
+          return {
+            type: "paragraph",
+            content: content.text?.map((child: any) => {
+              if (child.type === "text") {
+                const textNode: any = {
+                  type: "text",
+                  text: child.text,
+                };
+
+                // ✅ Reattach link marks
+                if (child.marks && child.marks.length > 0) {
+                  textNode.marks = child.marks.map((mark: any) => {
+                    if (mark.type === "link" && mark.attrs?.href) {
+                      return {
+                        type: "link",
+                        attrs: { href: mark.attrs.href },
+                      };
+                    }
+                    return mark;
+                  });
+                }
+
+                return textNode;
+              }
+              return child;
+            }) || [],
+          };
+
+        default:
+          return null;
+      }
+    })
+    // ✅ Simpler filter that TypeScript accepts
+    .filter((node): node is Exclude<typeof node, null> => node !== null);
+
+  return { type: "doc", content: tiptapContent };
 }
+

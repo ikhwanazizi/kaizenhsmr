@@ -2,16 +2,16 @@
 "use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
-import Link from "@tiptap/extension-link";
-import Underline from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import { Table } from "@tiptap/extension-table";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableRow } from "@tiptap/extension-table-row";
+import Placeholder from "@tiptap/extension-placeholder";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Underline from "@tiptap/extension-underline";
 import {
   Bold,
   Italic,
@@ -37,6 +37,23 @@ import {
   AlignJustify,
 } from "lucide-react";
 import { useState } from "react";
+
+export const extensions = [
+  StarterKit.configure({
+    // Disable built-in underline to prevent duplication
+    underline: false,
+    link: false,
+  }),
+  Underline,
+  Link.configure({
+    openOnClick: false,
+    autolink: true,
+    linkOnPaste: true,
+    HTMLAttributes: {
+      class: "text-blue-500 underline",
+    },
+  }),
+];
 
 interface ParagraphBlockProps {
   content: any;
@@ -69,11 +86,12 @@ export default function ParagraphBlock({
       Placeholder.configure({ placeholder: "Type / to see commands..." }),
       Link.configure({
         openOnClick: false,
+        protocols: ["http", "https"],
         HTMLAttributes: {
           class: "text-blue-600 underline hover:text-blue-700",
+          target: "_blank",
+          rel: "noopener noreferrer nofollow",
         },
-        // ✅ FIX: Validate that href is always saved
-        validate: (href) => /^https?:\/\//.test(href),
       }),
       Underline,
       Highlight.configure({
@@ -110,22 +128,38 @@ export default function ParagraphBlock({
   });
 
   const addLink = () => {
-    if (linkUrl && editor) {
-      // ✅ FIX: Ensure https:// prefix
-      let url = linkUrl.trim();
-      if (!url.startsWith("http://") && !url.startsWith("https://")) {
-        url = "https://" + url;
-      }
+    if (!linkUrl || !editor) return;
 
-      editor
-        .chain()
-        .focus()
-        .extendMarkRange("link")
-        .setLink({ href: url })
-        .run();
-      setLinkUrl("");
-      setShowLinkInput(false);
+    // Ensure https:// prefix
+    let url = linkUrl.trim();
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = "https://" + url;
     }
+
+    // Check if text is selected
+    const { from, to } = editor.state.selection;
+    if (from === to) {
+      alert("Please select text first before adding a link");
+      return;
+    }
+
+    // Apply the link
+    editor
+      .chain()
+      .focus()
+      .setLink({
+        href: url,
+        target: "_blank",
+        rel: "noopener noreferrer",
+      })
+      .run();
+
+    setLinkUrl("");
+    setShowLinkInput(false);
+
+    // Debug: Check what was saved
+    console.log("Link applied:", url);
+    console.log("Editor JSON:", editor.getJSON());
   };
 
   const removeLink = () => {
