@@ -24,7 +24,6 @@ import {
   MoreHorizontal,
   Copy,
   Trash2,
-  Type,
   Heading1,
   Quote,
   Undo,
@@ -37,23 +36,6 @@ import {
   AlignJustify,
 } from "lucide-react";
 import { useState } from "react";
-
-export const extensions = [
-  StarterKit.configure({
-    // Disable built-in underline to prevent duplication
-    underline: false,
-    link: false,
-  }),
-  Underline,
-  Link.configure({
-    openOnClick: false,
-    autolink: true,
-    linkOnPaste: true,
-    HTMLAttributes: {
-      class: "text-blue-500 underline",
-    },
-  }),
-];
 
 interface ParagraphBlockProps {
   content: any;
@@ -75,6 +57,40 @@ export default function ParagraphBlock({
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showTableMenu, setShowTableMenu] = useState(false);
 
+  // DEBUG: Print JSON + warn on missing href/textAlign
+  const debugJson = (json: any) => {
+    const warnings: string[] = [];
+
+    const walk = (node: any) => {
+      if (
+        (node.type === "paragraph" || node.type === "heading") &&
+        !node.attrs?.textAlign
+      ) {
+        warnings.push(`MISSING textAlign on ${node.type}`);
+      }
+      if (node.marks) {
+        node.marks.forEach((m: any) => {
+          if (m.type === "link" && !m.attrs?.href) {
+            warnings.push(`MISSING href on link: ${JSON.stringify(m)}`);
+          }
+        });
+      }
+      if (node.content) node.content.forEach(walk);
+    };
+
+    if (json.content) json.content.forEach(walk);
+
+    if (warnings.length > 0) {
+      console.warn("EDITOR WARNINGS:", warnings.join(" | "));
+    }
+
+    console.log(
+      "%cEDITOR JSON →",
+      "color: #06b6d4; font-weight: bold;",
+      JSON.stringify(json, null, 2)
+    );
+  };
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -82,140 +98,152 @@ export default function ParagraphBlock({
         heading: false,
         codeBlock: false,
         blockquote: false,
+        link: false,
+        underline: false,
+        strike: false,
       }),
+
       Placeholder.configure({ placeholder: "Type / to see commands..." }),
-      Link.configure({
+
+      // LINK — FIXED: href, target, rel saved
+      Link.extend({
+        addAttributes() {
+          return {
+            href: { default: null },
+            target: { default: "_blank" },
+            rel: { default: "noopener noreferrer nofollow" },
+            class: {
+              default:
+                "text-[#008080] hover:text-[#006666] underline font-medium transition-colors",
+            },
+          };
+        },
+      }).configure({
+        autolink: true,
+        linkOnPaste: true,
         openOnClick: false,
-        protocols: ["http", "https"],
         HTMLAttributes: {
-          class: "text-blue-600 underline hover:text-blue-700",
+          class:
+            "text-[#008080] hover:text-[#006666] underline font-medium transition-colors",
           target: "_blank",
           rel: "noopener noreferrer nofollow",
         },
       }),
+
       Underline,
+
       Highlight.configure({
         multicolor: true,
-        // ✅ FIX: Enable highlight for tables
-        HTMLAttributes: {
-          class: "bg-yellow-200 dark:bg-yellow-800",
-        },
+        HTMLAttributes: { class: "bg-yellow-200 dark:bg-yellow-800" },
       }),
+
+      // TEXT ALIGN — FIXED: saves textAlign on node
       TextAlign.configure({
-        types: ["heading", "paragraph", "tableCell", "tableHeader"],
+        types: ["paragraph", "heading"],
+        defaultAlignment: "left",
       }),
+
       Table.configure({
         resizable: true,
-        // ✅ FIX: Enable all features in table cells
-        HTMLAttributes: {
-          class: "border-collapse w-full",
-        },
+        HTMLAttributes: { class: "border-collapse w-full" },
       }),
       TableRow,
       TableHeader,
       TableCell,
     ],
+
     content: content,
+
     editorProps: {
       attributes: {
         class:
           "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[60px] px-4 py-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:list-outside [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:list-outside [&_li]:my-1 [&_table]:my-4 [&_table]:border-collapse [&_table]:w-full [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_th]:font-bold [&_th]:bg-gray-100 dark:[&_th]:bg-gray-700 select-text",
       },
     },
+
     onUpdate: ({ editor }) => {
-      onChange(editor.getJSON());
+      // Force fresh state
+      const json = JSON.parse(JSON.stringify(editor.getJSON()));
+      console.log("FRESH JSON →", json);
+      onChange(json);
     },
   });
 
   const addLink = () => {
     if (!linkUrl || !editor) return;
 
-    // Ensure https:// prefix
     let url = linkUrl.trim();
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       url = "https://" + url;
     }
 
-    // Check if text is selected
     const { from, to } = editor.state.selection;
     if (from === to) {
-      alert("Please select text first before adding a link");
+      alert("Please select some text first.");
       return;
     }
 
-    // Apply the link
     editor
       .chain()
       .focus()
       .setLink({
         href: url,
         target: "_blank",
-        rel: "noopener noreferrer",
+        rel: "noopener noreferrer nofollow",
       })
       .run();
 
     setLinkUrl("");
     setShowLinkInput(false);
-
-    // Debug: Check what was saved
-    console.log("Link applied:", url);
-    console.log("Editor JSON:", editor.getJSON());
   };
 
   const removeLink = () => {
     editor?.chain().focus().unsetLink().run();
   };
 
-  if (!editor) {
-    return null;
-  }
+  if (!editor) return null;
 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
       {/* Toolbar */}
       <div className="border-b border-gray-200 dark:border-gray-700 p-2 flex items-center gap-1 flex-wrap">
-        {/* Undo/Redo */}
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
-          title="Undo (Ctrl+Z)"
+          title="Undo"
         >
           <Undo size={16} />
         </ToolbarButton>
         <ToolbarButton
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().redo()}
-          title="Redo (Ctrl+Y)"
+          title="Redo"
         >
           <Redo size={16} />
         </ToolbarButton>
-        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+        <Divider />
 
-        {/* Text Formatting */}
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive("bold")}
-          title="Bold (Ctrl+B)"
+          title="Bold"
         >
           <Bold size={16} />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleItalic().run()}
           isActive={editor.isActive("italic")}
-          title="Italic (Ctrl+I)"
+          title="Italic"
         >
           <Italic size={16} />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           isActive={editor.isActive("underline")}
-          title="Underline (Ctrl+U)"
+          title="Underline"
         >
           <UnderlineIcon size={16} />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleStrike().run()}
           isActive={editor.isActive("strike")}
@@ -223,7 +251,6 @@ export default function ParagraphBlock({
         >
           <Strikethrough size={16} />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHighlight().run()}
           isActive={editor.isActive("highlight")}
@@ -231,10 +258,8 @@ export default function ParagraphBlock({
         >
           <Highlighter size={16} />
         </ToolbarButton>
+        <Divider />
 
-        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-
-        {/* Lists */}
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           isActive={editor.isActive("bulletList")}
@@ -242,7 +267,6 @@ export default function ParagraphBlock({
         >
           <List size={16} />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           isActive={editor.isActive("orderedList")}
@@ -250,10 +274,9 @@ export default function ParagraphBlock({
         >
           <ListOrdered size={16} />
         </ToolbarButton>
+        <Divider />
 
-        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-
-        {/* Alignment */}
+        {/* ALIGNMENT */}
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign("left").run()}
           isActive={editor.isActive({ textAlign: "left" })}
@@ -261,7 +284,6 @@ export default function ParagraphBlock({
         >
           <AlignLeft size={16} />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign("center").run()}
           isActive={editor.isActive({ textAlign: "center" })}
@@ -269,7 +291,6 @@ export default function ParagraphBlock({
         >
           <AlignCenter size={16} />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign("right").run()}
           isActive={editor.isActive({ textAlign: "right" })}
@@ -277,7 +298,6 @@ export default function ParagraphBlock({
         >
           <AlignRight size={16} />
         </ToolbarButton>
-
         <ToolbarButton
           onClick={() => editor.chain().focus().setTextAlign("justify").run()}
           isActive={editor.isActive({ textAlign: "justify" })}
@@ -285,13 +305,11 @@ export default function ParagraphBlock({
         >
           <AlignJustify size={16} />
         </ToolbarButton>
+        <Divider />
 
-        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-
-        {/* HR and Table */}
         <ToolbarButton
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          title="Insert Horizontal Rule"
+          title="Horizontal Rule"
         >
           <Minus size={16} />
         </ToolbarButton>
@@ -314,100 +332,15 @@ export default function ParagraphBlock({
           >
             <TableIcon size={16} />
           </ToolbarButton>
-
           {showTableMenu && editor.isActive("table") && (
-            <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-20">
-              <button
-                onClick={() => {
-                  editor.chain().focus().addRowBefore().run();
-                  setShowTableMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Add row above
-              </button>
-              <button
-                onClick={() => {
-                  editor.chain().focus().addRowAfter().run();
-                  setShowTableMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Add row below
-              </button>
-              <button
-                onClick={() => {
-                  editor.chain().focus().deleteRow().run();
-                  setShowTableMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Delete row
-              </button>
-              <div className="border-t border-gray-200 dark:border-gray-700" />
-              <button
-                onClick={() => {
-                  editor.chain().focus().addColumnBefore().run();
-                  setShowTableMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Add column left
-              </button>
-              <button
-                onClick={() => {
-                  editor.chain().focus().addColumnAfter().run();
-                  setShowTableMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Add column right
-              </button>
-              <button
-                onClick={() => {
-                  editor.chain().focus().deleteColumn().run();
-                  setShowTableMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Delete column
-              </button>
-              <div className="border-t border-gray-200 dark:border-gray-700" />
-              <button
-                onClick={() => {
-                  editor.chain().focus().mergeCells().run();
-                  setShowTableMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Merge cells
-              </button>
-              <button
-                onClick={() => {
-                  editor.chain().focus().splitCell().run();
-                  setShowTableMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                Split cell
-              </button>
-              <div className="border-t border-gray-200 dark:border-gray-700" />
-              <button
-                onClick={() => {
-                  editor.chain().focus().deleteTable().run();
-                  setShowTableMenu(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-              >
-                Delete table
-              </button>
-            </div>
+            <TableDropdown
+              editor={editor}
+              onClose={() => setShowTableMenu(false)}
+            />
           )}
         </div>
+        <Divider />
 
-        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-
-        {/* Link */}
         <div className="relative">
           <ToolbarButton
             onClick={() => {
@@ -418,7 +351,7 @@ export default function ParagraphBlock({
               }
             }}
             isActive={editor.isActive("link")}
-            title="Add Link"
+            title="Add / Edit Link"
           >
             <LinkIcon size={16} />
           </ToolbarButton>
@@ -434,9 +367,7 @@ export default function ParagraphBlock({
                     e.preventDefault();
                     addLink();
                   }
-                  if (e.key === "Escape") {
-                    setShowLinkInput(false);
-                  }
+                  if (e.key === "Escape") setShowLinkInput(false);
                 }}
                 placeholder="https://example.com"
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-white"
@@ -462,15 +393,13 @@ export default function ParagraphBlock({
 
         <div className="flex-1" />
 
-        {/* More Menu */}
         <div className="relative">
           <ToolbarButton
             onClick={() => setShowMoreMenu(!showMoreMenu)}
-            title="More options"
+            title="More"
           >
             <MoreHorizontal size={16} />
           </ToolbarButton>
-
           {showMoreMenu && (
             <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-20">
               <button
@@ -480,8 +409,7 @@ export default function ParagraphBlock({
                 }}
                 className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
               >
-                <Copy size={14} />
-                Duplicate
+                <Copy size={14} /> Duplicate
               </button>
               <div className="border-t border-gray-200 dark:border-gray-700">
                 <button
@@ -491,8 +419,7 @@ export default function ParagraphBlock({
                   }}
                   className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                 >
-                  <Heading1 size={14} />
-                  Convert to Heading
+                  <Heading1 size={14} /> Convert to Heading
                 </button>
                 <button
                   onClick={() => {
@@ -501,8 +428,7 @@ export default function ParagraphBlock({
                   }}
                   className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                 >
-                  <Quote size={14} />
-                  Convert to Quote
+                  <Quote size={14} /> Convert to Quote
                 </button>
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700">
@@ -513,8 +439,7 @@ export default function ParagraphBlock({
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
                 >
-                  <Trash2 size={14} />
-                  Delete
+                  <Trash2 size={14} /> Delete
                 </button>
               </div>
             </div>
@@ -522,12 +447,23 @@ export default function ParagraphBlock({
         </div>
       </div>
 
-      {/* Editor Content */}
+      {/* DEBUG BANNER */}
+      <div className="pointer-events-none">
+        <div className="fixed bottom-4 right-4 z-50 max-w-sm">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded shadow-lg text-xs">
+            <strong>DEBUG:</strong> Open Console (F12) → look for{" "}
+            <code className="bg-red-200 px-1">MISSING href</code> or{" "}
+            <code className="bg-red-200 px-1">textAlign</code>
+          </div>
+        </div>
+      </div>
+
       <EditorContent editor={editor} />
     </div>
   );
 }
 
+/* Helper Components */
 function ToolbarButton({
   onClick,
   isActive = false,
@@ -554,5 +490,106 @@ function ToolbarButton({
     >
       {children}
     </button>
+  );
+}
+
+function Divider() {
+  return <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />;
+}
+
+function TableDropdown({
+  editor,
+  onClose,
+}: {
+  editor: any;
+  onClose: () => void;
+}) {
+  return (
+    <div className="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-20">
+      <button
+        onClick={() => {
+          editor.chain().focus().addRowBefore().run();
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        Add row above
+      </button>
+      <button
+        onClick={() => {
+          editor.chain().focus().addRowAfter().run();
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        Add row below
+      </button>
+      <button
+        onClick={() => {
+          editor.chain().focus().deleteRow().run();
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        Delete row
+      </button>
+      <div className="border-t border-gray-200 dark:border-gray-700" />
+      <button
+        onClick={() => {
+          editor.chain().focus().addColumnBefore().run();
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        Add column left
+      </button>
+      <button
+        onClick={() => {
+          editor.chain().focus().addColumnAfter().run();
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        Add column right
+      </button>
+      <button
+        onClick={() => {
+          editor.chain().focus().deleteColumn().run();
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        Delete column
+      </button>
+      <div className="border-t border-gray-200 dark:border-gray-700" />
+      <button
+        onClick={() => {
+          editor.chain().focus().mergeCells().run();
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        Merge cells
+      </button>
+      <button
+        onClick={() => {
+          editor.chain().focus().splitCell().run();
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        Split cell
+      </button>
+      <div className="border-t border-gray-200 dark:border-gray-700" />
+      <button
+        onClick={() => {
+          editor.chain().focus().deleteTable().run();
+          onClose();
+        }}
+        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+      >
+        Delete table
+      </button>
+    </div>
   );
 }

@@ -14,7 +14,16 @@ const ImageBlock = dynamic(() => import("./image-block"));
 const VideoBlock = dynamic(() => import("./video-block"));
 const QuoteBlock = dynamic(() => import("./quote-block"));
 const CodeBlock = dynamic(() => import("./code-block"));
-import { DndContext, closestCenter, DragEndEvent, MouseSensor, TouchSensor, KeyboardSensor, useSensor, useSensors } from "@dnd-kit/core";
+import {
+  DndContext,
+  closestCenter,
+  DragEndEvent,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -231,6 +240,8 @@ export default function Step3Content({
   };
 
   const handleBlockChange = (blockId: string, newContent: any) => {
+    console.log("RAW CONTENT FROM PARAGRAPH BLOCK:", newContent); // ADD THIS
+
     setBlocks((prev) =>
       prev.map((block) =>
         block.id === blockId
