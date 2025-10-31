@@ -1,11 +1,10 @@
-// src/components/blog/BlogPostLayout.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { StickySidebar } from "./StickySidebar"; // ✅ FIX: Use a named import here
+import { StickySidebar } from "./StickySidebar";
 import PostRenderer from "./PostRenderer";
 
 // Type definitions
@@ -191,6 +190,8 @@ export default function BlogPostLayout({
           </div>
         </div>
       </div>
+
+      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
         <div className="flex flex-col lg:flex-row gap-12">
           <aside
@@ -203,12 +204,17 @@ export default function BlogPostLayout({
               postTitle={post.title}
             />
           </aside>
+
+          {/* ✅ Post content with Tailwind table design */}
           <article className="lg:w-3/5 order-1 lg:order-2">
-            <PostRenderer blocks={blocks} />
+            <div className="max-w-none">
+              <PostRenderer blocks={blocks} />
+            </div>
           </article>
         </div>
       </div>
-      {/* Mobile-only Sidebar content */}
+
+      {/* Mobile-only Sidebar */}
       <div className="lg:hidden px-4 mb-8">
         <StickySidebar
           toc={toc}
@@ -216,6 +222,7 @@ export default function BlogPostLayout({
           postTitle={post.title}
         />
       </div>
+
       <Footer />
     </div>
   );

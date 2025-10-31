@@ -3,16 +3,25 @@ import imageCompression from 'browser-image-compression';
 
 interface CompressOptions {
   maxWidth: number;
-  quality: number; // Changed from literal type to number
+  quality: number;
 }
 
 /**
  * Compresses an image file in the browser before uploading.
+ * Skips compression for GIF files.
  * @param file The original image file.
  * @param options The compression options (maxWidth and quality).
- * @returns The compressed image as a File object.
+ * @returns The compressed image as a File object (or the original if it's a GIF).
  */
 export async function compressImage(file: File, options: CompressOptions): Promise<File> {
+  // --- MODIFICATION ---
+  // If it's a GIF, skip compression and return the original file
+  if (file.type === 'image/gif') {
+    console.log('Skipping compression for GIF file.');
+    return file;
+  }
+  // --- END MODIFICATION ---
+
   // Target size in MB (100KB = 0.1MB)
   const targetSizeMB = 0.1;
   
@@ -21,10 +30,9 @@ export async function compressImage(file: File, options: CompressOptions): Promi
     maxWidthOrHeight: options.maxWidth,
     useWebWorker: true,
     initialQuality: options.quality,
-    fileType: 'image/webp',
-    // Add these additional options for better control
-    maxIteration: 10, // Maximum attempts to reach target size
-    alwaysKeepResolution: false, // Allow further size reduction if needed
+    fileType: 'image/webp', // This will now only apply to non-GIFs
+    maxIteration: 10, 
+    alwaysKeepResolution: false,
   };
 
   try {
@@ -36,9 +44,9 @@ export async function compressImage(file: File, options: CompressOptions): Promi
       
       const aggressiveOptions = {
         maxSizeMB: targetSizeMB,
-        maxWidthOrHeight: Math.min(options.maxWidth, 1200), // Reduce dimensions further
+        maxWidthOrHeight: Math.min(options.maxWidth, 1200),
         useWebWorker: true,
-        initialQuality: Math.min(options.quality, 0.6), // Lower quality
+        initialQuality: Math.min(options.quality, 0.6),
         fileType: 'image/webp',
         maxIteration: 15,
       };
@@ -59,13 +67,13 @@ export async function compressImage(file: File, options: CompressOptions): Promi
 
 // Fallback method using canvas if browser-image-compression fails
 async function fallbackCompression(file: File, options: CompressOptions): Promise<File> {
+  // This fallback will also not be called for GIFs due to the check above
   return new Promise((resolve) => {
     const img = new Image();
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
     img.onload = () => {
-      // Calculate dimensions
       let { width, height } = img;
       if (width > options.maxWidth) {
         height = (height * options.maxWidth) / width;
@@ -78,7 +86,6 @@ async function fallbackCompression(file: File, options: CompressOptions): Promis
       if (ctx) {
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Convert to blob with lower quality
         canvas.toBlob(
           (blob) => {
             if (blob) {
@@ -88,7 +95,7 @@ async function fallbackCompression(file: File, options: CompressOptions): Promis
               });
               resolve(compressedFile);
             } else {
-              resolve(file); // Return original if blob creation fails
+              resolve(file); 
             }
           },
           'image/webp',

@@ -111,17 +111,21 @@ const renderTiptapContent = (node: any): string => {
     case "horizontalRule":
       return '<hr class="my-8 border-t-2 border-gray-200">';
 
+    // CHANGED: Updated table styles for a modern look
     case "table":
-      return `<div class="overflow-x-auto my-6"><table class="w-full border-collapse bg-white border border-gray-200 rounded-lg shadow-sm">${children}</table></div>`;
+      return `<div class="overflow-x-auto my-6 rounded-lg shadow-md border border-gray-200"><table class="w-full border-collapse">${children}</table></div>`;
 
+    // CHANGED: Updated table row styles
     case "tableRow":
-      return `<tr class="border-b border-gray-200 hover:bg-gray-50">${children}</tr>`;
+      return `<tr class="border-b border-gray-200 last:border-b-0 hover:bg-gray-50/70 transition-colors">${children}</tr>`;
 
+    // CHANGED: Updated table header styles
     case "tableHeader":
-      return `<th class="border border-gray-200 px-4 py-2 bg-gray-50 font-semibold text-gray-700 text-center align-middle"${styleAttr}>${children}</th>`;
+      return `<th class="px-6 py-4 bg-[#f0fafa] text-[#006666] font-semibold text-sm text-center align-middle"${styleAttr}>${children}</th>`;
 
+    // CHANGED: Updated table cell styles
     case "tableCell":
-      return `<td class="border border-gray-200 px-4 py-2 text-gray-700 text-center align-middle"${styleAttr}>${children}</td>`;
+      return `<td class="px-6 py-4 text-gray-800 text-center align-middle"${styleAttr}>${children}</td>`;
 
     case "doc":
       return children;
@@ -281,6 +285,17 @@ export default function PostRenderer({ blocks }: { blocks: Block[] }) {
   // REMOVED `prose` CLASS → NO MORE MUTED TEXT
   return (
     <div className="max-w-none">
+      {/* CHANGED: This style tag fixes the vertical alignment bug.
+        It targets paragraphs inside your table cells and removes 
+        the bottom margin that Tiptap adds by default.
+      */}
+      <style jsx global>{`
+        .max-w-none th p,
+        .max-w-none td p {
+          margin-bottom: 0;
+        }
+      `}</style>
+
       {blocks.map((block) => (
         <div key={block.id}>{renderBlock(block)}</div>
       ))}

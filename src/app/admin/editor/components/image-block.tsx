@@ -1,4 +1,3 @@
-// src/app/admin/editor/components/image-block.tsx
 "use client";
 
 import { useState, useRef } from "react";
@@ -51,20 +50,30 @@ export default function ImageBlock({
     setUploadError(null);
 
     try {
-      const compressedFile = await compressImage(file, {
+      // --- MODIFICATION ---
+      // 1. Get the processed file (could be the original GIF or a new WebP)
+      const fileToUpload = await compressImage(file, {
         maxWidth: 1920,
         quality: 0.8,
       });
 
-      const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+      // 2. Determine extension from the *processed* file's type
+      const extension = fileToUpload.type === "image/gif" ? "gif" : "webp";
+      const originalName = file.name
+        .replace(/\.[^/.]+$/, "")
+        .replace(/\s+/g, "-");
+      const fileName = `${Date.now()}-${originalName}.${extension}`;
       const filePath = `public/${postId}/content/${fileName}`;
 
+      // 3. Upload the processed file
       const { data, error } = await supabase.storage
         .from("post-images")
-        .upload(filePath, compressedFile, {
+        .upload(filePath, fileToUpload, {
+          // Use fileToUpload
           cacheControl: "3600",
           upsert: false,
         });
+      // --- END MODIFICATION ---
 
       if (error) throw error;
 
@@ -149,7 +158,7 @@ export default function ImageBlock({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*" // This already allows GIFs
               onChange={handleFileUpload}
               className="hidden"
             />

@@ -447,17 +447,6 @@ export default function ParagraphBlock({
         </div>
       </div>
 
-      {/* DEBUG BANNER */}
-      <div className="pointer-events-none">
-        <div className="fixed bottom-4 right-4 z-50 max-w-sm">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded shadow-lg text-xs">
-            <strong>DEBUG:</strong> Open Console (F12) → look for{" "}
-            <code className="bg-red-200 px-1">MISSING href</code> or{" "}
-            <code className="bg-red-200 px-1">textAlign</code>
-          </div>
-        </div>
-      </div>
-
       <EditorContent editor={editor} />
     </div>
   );
