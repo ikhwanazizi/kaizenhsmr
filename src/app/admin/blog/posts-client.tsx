@@ -62,6 +62,7 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     {
       key: "title",
       label: "Title",
+      sortable: true, // <-- ADDED
       render: (post) => (
         <span className="font-medium text-slate-900 dark:text-white">
           {post.title}
@@ -71,6 +72,7 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     {
       key: "category",
       label: "Category",
+      sortable: true, // <-- ADDED
       render: (post) => (
         <span className="capitalize">{post.category || "N/A"}</span>
       ),
@@ -78,6 +80,7 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     {
       key: "status",
       label: "Status",
+      sortable: true, // <-- ADDED
       render: (post) => (
         <span
           className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -95,14 +98,16 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     {
       key: "author",
       label: "Author",
+      sortable: true, // <-- ADDED
       render: (post) => post.author?.full_name || post.author?.email || "N/A",
     },
     {
       key: "published_at",
       label: "Published Date",
+      sortable: true, // <-- ADDED
       render: (post) =>
         post.published_at
-          ? new Date(post.published_at).toLocaleDateString("en-GB") // <-- THE FIX IS HERE
+          ? new Date(post.published_at).toLocaleDateString("en-GB")
           : "Not Published",
     },
   ];
