@@ -73,18 +73,24 @@ export default function BlogPostLayout({
         .eq("status", "published")
         .single();
 
-      if (postError) throw postError;
+      // MODIFIED: Only throw if it's a real error, not a "not found" (PGRST116)
+      if (postError && postError.code !== "PGRST116") {
+        throw postError;
+      }
 
-      const { data: blocksData, error: blocksError } = await supabase
-        .from("post_blocks")
-        .select("*")
-        .eq("post_id", postData.id)
-        .order("order_index", { ascending: true });
+      // If postData exists (not a 404), fetch its blocks
+      if (postData) {
+        const { data: blocksData, error: blocksError } = await supabase
+          .from("post_blocks")
+          .select("*")
+          .eq("post_id", postData.id)
+          .order("order_index", { ascending: true });
 
-      if (blocksError) throw blocksError;
+        if (blocksError) throw blocksError;
 
-      setPost(postData);
-      setBlocks(blocksData || []);
+        setPost(postData);
+        setBlocks(blocksData || []);
+      }
     } catch (error) {
       console.error("Error fetching post:", error);
     } finally {
@@ -123,25 +129,28 @@ export default function BlogPostLayout({
 
   if (!post) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen flex flex-col bg-white">
         <Navbar />
-        <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Post Not Found
-          </h1>
-          <p className="text-gray-600 mb-8">
-            The post you're looking for doesn't exist.
-          </p>
-          <a
-            href={
-              category === "blog"
-                ? "/resources/blog-articles"
-                : "/company/developments"
-            }
-            className="text-[#008080] hover:underline"
-          >
-            ← Back to {category === "blog" ? "Blog" : "Developments"}
-          </a>
+        {/* This section now ensures the white space fills nicely (min 700–800px) */}
+        <div className="flex flex-1 items-center justify-center pt-16 min-h-[700px] md:min-h-[800px]">
+          <div className="max-w-4xl mx-auto px-4 text-center">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              Post Not Found
+            </h1>
+            <p className="text-gray-600 mb-8">
+              The post you're looking for doesn't exist.
+            </p>
+            <a
+              href={
+                category === "blog"
+                  ? "/resources/blog-articles"
+                  : "/company/developments"
+              }
+              className="text-[#008080] hover:underline"
+            >
+              ← Back to {category === "blog" ? "Blog" : "Developments"}
+            </a>
+          </div>
         </div>
         <Footer />
       </div>
@@ -151,23 +160,13 @@ export default function BlogPostLayout({
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
-      <div className="relative bg-gray-100 mt-16">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-5 gap-0">
-            <div className="md:col-span-3 relative h-64 md:h-[282px]">
-              {post.featured_image ? (
-                <img
-                  src={post.featured_image}
-                  alt={post.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#008080] to-[#20b2aa] flex items-center justify-center">
-                  <span className="text-white text-xl">KaizenHR</span>
-                </div>
-              )}
-            </div>
-            <div className="md:col-span-2 bg-white p-6 md:p-8 flex flex-col justify-center">
+      {/* CHANGED: This whole block is updated for the new banner layout */}
+      <div className="relative bg-slate-50 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Grid for desktop: Text left, Image right. Stacks on mobile: Text top, Image bottom. */}
+          <div className="grid md:grid-cols-5 gap-12 items-center py-12">
+            {/* Text Content (Left on Desktop, Top on Mobile) */}
+            <div className="md:col-span-2 p-6 md:p-0 flex flex-col justify-center">
               <p className="text-sm text-gray-500 mb-2">
                 {new Date(post.published_at).toLocaleDateString("en-US", {
                   year: "numeric",
@@ -186,6 +185,21 @@ export default function BlogPostLayout({
                     "KaizenHR Team"}
                 </span>
               </div>
+            </div>
+
+            {/* Image (Right on Desktop, Bottom on Mobile) */}
+            <div className="md:col-span-3 relative h-64 md:h-80 rounded-lg overflow-hidden">
+              {post.featured_image ? (
+                <img
+                  src={post.featured_image}
+                  alt={post.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#008080] to-[#20b2aa] flex items-center justify-center">
+                  <span className="text-white text-xl">KaizenHR</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
