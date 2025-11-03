@@ -1,9 +1,10 @@
 // src/app/admin/editor/components/step-3-content.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { Database } from "@/types/supabase";
 import FeaturedImageUploader from "./featured-image-uploader";
+import { updatePostContent } from "../../posts/actions";
 import { BlockWrapper } from "./block-wrapper";
 import ParagraphBlock from "./paragraph-block";
 import dynamic from "next/dynamic";
@@ -48,6 +49,7 @@ interface Step3ContentProps {
   setPost: React.Dispatch<React.SetStateAction<Post>>;
   initialBlocks: PostBlock[];
   getEditorJSON: React.MutableRefObject<(() => any) | undefined>;
+  setAutoSaveStatus: (status: "idle" | "saving" | "saved") => void;
 }
 
 export default function Step3Content({
@@ -55,9 +57,72 @@ export default function Step3Content({
   setPost,
   initialBlocks,
   getEditorJSON,
+  setAutoSaveStatus,
 }: Step3ContentProps) {
   const [blocks, setBlocks] = useState<PostBlock[]>(initialBlocks);
   const [showBlockMenu, setShowBlockMenu] = useState(false);
+
+  // --- ADDED: Autosave Logic ---
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const isFirstRender = useRef(true); // To prevent saving on initial load
+
+  // The function that performs the save
+  const savePost = useCallback(async () => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    setAutoSaveStatus("saving");
+
+    // We must map the blocks to remove DB-only fields like id, created_at
+    const blocksToSave = blocks.map((block) => ({
+      post_id: block.post_id,
+      type: block.type,
+      content: block.content,
+      order_index: block.order_index,
+    }));
+
+    // We pass the title/excerpt from the `post` state, and the new blocks
+    const result = await updatePostContent(
+      post.id,
+      { title: post.title, excerpt: post.excerpt },
+      blocksToSave
+    );
+
+    if (result.success) {
+      setAutoSaveStatus("saved");
+    } else {
+      setAutoSaveStatus("idle"); // Or you could set an "error" state
+    }
+  }, [post.id, post.title, post.excerpt, blocks, setAutoSaveStatus]);
+
+  // This effect listens for changes and sets the debounce timer
+  useEffect(() => {
+    // Don't save on the very first render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    // When changes are detected, set status to "idle" (e.g., "typing...")
+    setAutoSaveStatus("idle");
+
+    // Clear any existing timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    // Set a new timer to call savePost after 2 seconds (2000ms)
+    debounceTimer.current = setTimeout(() => {
+      savePost();
+    }, 2000);
+
+    // Cleanup timer on unmount
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [post.title, post.excerpt, blocks, savePost, setAutoSaveStatus]);
+  // --- END: Autosave Logic ---
 
   // Expose a function to get all blocks as JSON
   React.useEffect(() => {

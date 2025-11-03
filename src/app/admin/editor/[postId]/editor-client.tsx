@@ -10,6 +10,7 @@ import {
   updatePostContent,
   publishPost,
 } from "../../posts/actions";
+import { Loader2, Check } from "lucide-react";
 import StepIndicator from "../components/step-indicator";
 import Step1Category from "../components/step-1-category";
 import Step2SEO from "../components/step-2-seo";
@@ -34,6 +35,9 @@ export default function EditorClient({
   const [post, setPost] = useState<Post>(initialPost);
   const [isSaving, setIsSaving] = useState(false);
   const [isSlugValid, setIsSlugValid] = useState(true); // To track slug validity from child
+  const [autoSaveStatus, setAutoSaveStatus] = useState<
+    "idle" | "saving" | "saved"
+  >("idle");
 
   const getEditorContentRef = useRef<(() => any) | undefined>(undefined);
 
@@ -166,6 +170,7 @@ export default function EditorClient({
             setPost={setPost}
             initialBlocks={initialBlocks}
             getEditorJSON={getEditorContentRef as any}
+            setAutoSaveStatus={setAutoSaveStatus}
           />
         )}
         {currentStep === 4 && (
@@ -177,14 +182,37 @@ export default function EditorClient({
       </div>
 
       {currentStep > 1 && (
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-          <button
-            onClick={() => setCurrentStep(currentStep - 1)}
-            disabled={isSaving}
-            className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
-          >
-            Back
-          </button>
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex  justify-end items-center gap-3">
+          {/* --- ADDED: AUTOSAVE STATUS --- */}
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {currentStep === 3 && (
+              <div className="flex items-center gap-2">
+                {autoSaveStatus === "saving" && (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Saving...
+                  </>
+                )}
+                {autoSaveStatus === "saved" && (
+                  <>
+                    <Check size={16} className="text-green-500" />
+                    Saved
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          {/* --- END OF ADDED STATUS --- */}
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setCurrentStep(currentStep - 1)}
+              disabled={isSaving}
+              className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
+            >
+              Back
+            </button>
+          </div>
+
           <button
             onClick={handleNext}
             disabled={isSaving || (currentStep === 2 && !isSlugValid)}
