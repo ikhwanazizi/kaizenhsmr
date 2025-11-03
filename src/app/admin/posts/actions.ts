@@ -73,6 +73,7 @@ export async function getAllPosts() {
       category,
       status,
       published_at,
+      author_id,
       author:profiles (
         full_name,
         email

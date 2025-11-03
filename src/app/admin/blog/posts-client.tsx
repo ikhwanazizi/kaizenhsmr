@@ -1,9 +1,17 @@
 // src/app/admin/blog/posts-client.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
+import {
+  PlusCircle,
+  Edit,
+  Trash2,
+  FileText,
+  CheckCheck,
+  Edit3,
+} from "lucide-react";
 import DataTable, { type Column } from "@/components/shared/DataTable";
 import ConfirmDeleteModal from "@/components/shared/ConfirmDeleteModal";
 import { createPost, deletePost } from "../posts/actions";
@@ -16,6 +24,7 @@ type PostWithAuthor = {
   category: string | null;
   status: string | null;
   published_at: string | null;
+  author_id: string | null;
   author: {
     full_name: string | null;
     email: string | null;
@@ -28,6 +37,25 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState<PostWithAuthor | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState<"all" | "myPosts">("all");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+    };
+    getUser();
+  }, [supabase.auth]);
 
   const handleCreatePost = async (category: "blog" | "development") => {
     setIsCreating(true);
@@ -57,6 +85,32 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     setIsDeleteModalOpen(false);
     setPostToDelete(null);
   };
+
+  // Filter posts based on tabs and dropdowns
+  const finalFilteredPosts = useMemo(() => {
+    const tabFiltered =
+      activeTab === "all"
+        ? posts
+        : posts.filter((post) => post.author_id === currentUserId);
+
+    return tabFiltered.filter((post) => {
+      const statusMatch =
+        statusFilter === "all" || post.status === statusFilter;
+      const categoryMatch =
+        categoryFilter === "all" || post.category === categoryFilter;
+      return statusMatch && categoryMatch;
+    });
+  }, [posts, statusFilter, categoryFilter, activeTab, currentUserId]);
+
+  // --- ADDED: Calculate stats from the original full list ---
+  const stats = useMemo(() => {
+    const total = posts.length;
+    const published = posts.filter(
+      (post) => post.status === "published"
+    ).length;
+    const drafts = posts.filter((post) => post.status === "draft").length;
+    return { total, published, drafts };
+  }, [posts]);
 
   const columns: Column<PostWithAuthor>[] = [
     {
@@ -112,8 +166,54 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     },
   ];
 
+  // Create the filter controls JSX to pass to the DataTable
+  const filterControls = (
+    <div className="flex flex-col w-full gap-2 sm:flex-row sm:w-auto">
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="w-full sm:w-40 px-3 py-2 border rounded-lg bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+      >
+        <option value="all">All Statuses</option>
+        <option value="published">Published</option>
+        <option value="draft">Draft</option>
+      </select>
+      <select
+        value={categoryFilter}
+        onChange={(e) => setCategoryFilter(e.target.value)}
+        className="w-full sm:w-40 px-3 py-2 border rounded-lg bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+      >
+        <option value="all">All Categories</option>
+        <option value="blog">Blog</option>
+        <option value="development">Development</option>
+      </select>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
+      {/* --- ADDED: Stats Cards --- */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          icon={FileText}
+          title="Total Posts"
+          value={stats.total}
+          color="text-blue-400"
+        />
+        <StatCard
+          icon={CheckCheck}
+          title="Published"
+          value={stats.published}
+          color="text-green-400"
+        />
+        <StatCard
+          icon={Edit3}
+          title="Drafts"
+          value={stats.drafts}
+          color="text-yellow-400"
+        />
+      </div>
+      {/* --- END: Stats Cards --- */}
       <ConfirmDeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
@@ -125,11 +225,37 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
         isDeleting={isDeleting}
       />
 
+      {/* --- ADDED TABS --- */}
+      <div className="flex border-b border-slate-700">
+        <button
+          onClick={() => setActiveTab("all")}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === "all"
+              ? "border-b-2 border-blue-500 text-white"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          All Posts
+        </button>
+        <button
+          onClick={() => setActiveTab("myPosts")}
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === "myPosts"
+              ? "border-b-2 border-blue-500 text-white"
+              : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          My Posts
+        </button>
+      </div>
+      {/* --- END OF ADDED TABS --- */}
+
       <DataTable
-        data={posts}
+        data={finalFilteredPosts}
         columns={columns}
         searchable={true}
         searchKeys={["title", "category", "status"]}
+        filterControls={filterControls}
         pagination={true}
         itemsPerPage={10}
         headerActions={
@@ -170,6 +296,33 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
         )}
         emptyMessage="No posts found. Create one to get started."
       />
+    </div>
+  );
+}
+
+// --- ADDED: Helper component for stat cards ---
+function StatCard({
+  icon: Icon,
+  title,
+  value,
+  color,
+}: {
+  icon: any;
+  title: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <div className="p-4 bg-gray-800 border border-gray-700 rounded-lg">
+      <div className="flex items-center gap-3">
+        <div className={`flex-shrink-0 p-2 bg-gray-700 rounded-md ${color}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <div>
+          <div className="text-sm font-medium text-gray-400">{title}</div>
+          <div className="text-2xl font-bold text-white">{value}</div>
+        </div>
+      </div>
     </div>
   );
 }

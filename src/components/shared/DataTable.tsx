@@ -25,6 +25,7 @@ type DataTableProps<T> = {
   emptyMessage?: string;
   className?: string;
   headerActions?: React.ReactNode;
+  filterControls?: React.ReactNode;
 };
 
 export default function DataTable<T extends Record<string, any>>({
@@ -40,6 +41,7 @@ export default function DataTable<T extends Record<string, any>>({
   emptyMessage = "No data available",
   className = "",
   headerActions,
+  filterControls,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
@@ -108,21 +110,26 @@ export default function DataTable<T extends Record<string, any>>({
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div className="flex-shrink-0">{headerActions}</div>
 
-        {searchable && (
-          <div className="relative w-full md:max-w-xs">
-            <Search
-              className="absolute text-slate-400 transform -translate-y-1/2 left-3 top-1/2"
-              size={20}
-            />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full py-2 pl-10 pr-4 border rounded-lg bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white dark:placeholder-slate-400"
-            />
-          </div>
-        )}
+        {/* --- MODIFIED: Wrapper for filters + search --- */}
+        <div className="flex flex-col w-full gap-2 md:flex-row md:w-auto md:items-center">
+          {filterControls} {/* <-- ADDED THIS PROP */}
+          {searchable && (
+            <div className="relative w-full md:max-w-xs">
+              <Search
+                className="absolute text-slate-400 transform -translate-y-1/2 left-3 top-1/2"
+                size={20}
+              />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full py-1.5 pl-10 pr-4 border rounded-lg bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white dark:placeholder-slate-400"
+              />
+            </div>
+          )}
+        </div>
+        {/* --- END MODIFICATION --- */}
       </div>
 
       {/* Table */}
