@@ -48,7 +48,7 @@ export default function Step2SEO({
   const isSlugInSync = post.slug === generateFullSlug(post.title!);
 
   useEffect(() => {
-    const isValid = post.slug && post.slug.trim() !== "";
+    const isValid = !!(post.slug && post.slug.trim() !== "");
     onValidationChange(isValid);
   }, [post.slug, onValidationChange]);
 
@@ -124,12 +124,13 @@ export default function Step2SEO({
     if (metaDescLength <= 160) return "text-green-600";
     return "text-red-600";
   };
-  
+
   // --- THIS IS THE EXACT BLOCK YOU ASKED FOR, INTEGRATED ---
   const previewTitle = post.seo_meta_title || post.title || "Untitled Post";
   const previewDesc = post.seo_meta_description || "No description provided.";
   // Dynamic URL based on category
-  const categoryPath = post.category === "blog" ? "blog-articles" : "developments";
+  const categoryPath =
+    post.category === "blog" ? "blog-articles" : "developments";
   const previewUrl = `https://yoursite.com/${categoryPath}/${post.slug || "untitled-post"}`;
   const previewImage =
     post.seo_og_image || post.featured_image || "/placeholder-og.png";

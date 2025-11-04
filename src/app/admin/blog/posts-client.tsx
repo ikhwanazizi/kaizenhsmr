@@ -11,13 +11,14 @@ import {
   FileText,
   CheckCheck,
   Edit3,
+  Send,
 } from "lucide-react";
 import DataTable, { type Column } from "@/components/shared/DataTable";
 import ConfirmDeleteModal from "@/components/shared/ConfirmDeleteModal";
 import { createPost, deletePost } from "../posts/actions";
+import ConfirmSendModal from "./ConfirmSendModal";
 
-// Define the type for a single post, including the author object
-type PostWithAuthor = {
+export type PostWithAuthor = {
   id: string;
   title: string | null;
   slug: string | null;
@@ -25,6 +26,9 @@ type PostWithAuthor = {
   status: string | null;
   published_at: string | null;
   author_id: string | null;
+  newsletter_sent_at: string | null;
+  excerpt: string | null;
+  featured_image: string | null;
   author: {
     full_name: string | null;
     email: string | null;
@@ -42,21 +46,39 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
   const [activeTab, setActiveTab] = useState<"all" | "myPosts">("all");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
+  // --- 1. ADD STATE TO HOLD THE USER'S ROLE ---
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [postToSend, setPostToSend] = useState<PostWithAuthor | null>(null);
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // --- 2. UPDATE THIS useEffect TO FETCH THE ROLE ---
   useEffect(() => {
     const getUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       setCurrentUserId(user?.id || null);
+
+      if (user) {
+        // Also fetch the user's profile to get their role
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        setCurrentUserRole(profile?.role || null);
+      }
     };
     getUser();
-  }, [supabase.auth]);
+  }, [supabase, supabase.auth]); // Added supabase to dependency array
 
+  // ... (handleCreatePost, handleOpenDeleteModal, handleOpenSendModal, handleDeleteConfirm... all stay the same) ...
   const handleCreatePost = async (category: "blog" | "development") => {
     setIsCreating(true);
     const result = await createPost(category);
@@ -73,6 +95,11 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     setIsDeleteModalOpen(true);
   };
 
+  const handleOpenSendModal = (post: PostWithAuthor) => {
+    setPostToSend(post);
+    setIsSendModalOpen(true);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!postToDelete) return;
 
@@ -86,7 +113,6 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     setPostToDelete(null);
   };
 
-  // Filter posts based on tabs and dropdowns
   const finalFilteredPosts = useMemo(() => {
     const tabFiltered =
       activeTab === "all"
@@ -102,7 +128,6 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     });
   }, [posts, statusFilter, categoryFilter, activeTab, currentUserId]);
 
-  // --- ADDED: Calculate stats from the original full list ---
   const stats = useMemo(() => {
     const total = posts.length;
     const published = posts.filter(
@@ -116,7 +141,7 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     {
       key: "title",
       label: "Title",
-      sortable: true, // <-- ADDED
+      sortable: true,
       render: (post) => (
         <span className="font-medium text-slate-900 dark:text-white">
           {post.title}
@@ -126,7 +151,7 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     {
       key: "category",
       label: "Category",
-      sortable: true, // <-- ADDED
+      sortable: true,
       render: (post) => (
         <span className="capitalize">{post.category || "N/A"}</span>
       ),
@@ -134,7 +159,7 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     {
       key: "status",
       label: "Status",
-      sortable: true, // <-- ADDED
+      sortable: true,
       render: (post) => (
         <span
           className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -152,13 +177,13 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     {
       key: "author",
       label: "Author",
-      sortable: true, // <-- ADDED
+      sortable: true,
       render: (post) => post.author?.full_name || post.author?.email || "N/A",
     },
     {
       key: "published_at",
       label: "Published Date",
-      sortable: true, // <-- ADDED
+      sortable: true,
       render: (post) =>
         post.published_at
           ? new Date(post.published_at).toLocaleDateString("en-GB")
@@ -166,7 +191,6 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
     },
   ];
 
-  // Create the filter controls JSX to pass to the DataTable
   const filterControls = (
     <div className="flex flex-col w-full gap-2 sm:flex-row sm:w-auto">
       <select
@@ -192,7 +216,6 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
 
   return (
     <div className="space-y-6">
-      {/* --- ADDED: Stats Cards --- */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           icon={FileText}
@@ -213,7 +236,7 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
           color="text-yellow-400"
         />
       </div>
-      {/* --- END: Stats Cards --- */}
+
       <ConfirmDeleteModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
@@ -225,7 +248,18 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
         isDeleting={isDeleting}
       />
 
-      {/* --- ADDED TABS --- */}
+      {isSendModalOpen && (
+        <ConfirmSendModal
+          isOpen={isSendModalOpen}
+          onClose={() => setIsSendModalOpen(false)}
+          post={postToSend}
+          onSendComplete={() => {
+            setIsSendModalOpen(false);
+            router.refresh(); // This will re-fetch posts and update the "Send" button
+          }}
+        />
+      )}
+
       <div className="flex border-b border-slate-700">
         <button
           onClick={() => setActiveTab("all")}
@@ -248,7 +282,6 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
           My Posts
         </button>
       </div>
-      {/* --- END OF ADDED TABS --- */}
 
       <DataTable
         data={finalFilteredPosts}
@@ -279,20 +312,52 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
           </div>
         }
         actions={(post) => (
-          <>
+          // --- 3. WRAP THE "Send" BUTTON IN THE ROLE CHECK ---
+          <div className="flex items-center gap-1">
             <button
-              onClick={() => router.push(`/admin/editor/${post.id}`)}
-              className="font-medium text-blue-600 transition-colors hover:text-blue-800"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/admin/editor/${post.id}`);
+              }}
+              className="p-2 text-blue-600 rounded hover:bg-blue-50 dark:hover:bg-gray-700"
+              title="Edit"
             >
               <Edit className="w-5 h-5" />
             </button>
+
+            {/* THIS IS THE NEW LOGIC */}
+            {currentUserRole === "super_admin" &&
+              post.status === "published" && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenSendModal(post);
+                  }}
+                  disabled={!!post.newsletter_sent_at}
+                  className="p-2 text-green-600 rounded hover:bg-green-50 dark:hover:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed"
+                  title={
+                    post.newsletter_sent_at
+                      ? `Sent on ${new Date(
+                          post.newsletter_sent_at
+                        ).toLocaleDateString()}`
+                      : "Send newsletter"
+                  }
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              )}
+
             <button
-              onClick={() => handleOpenDeleteModal(post)}
-              className="font-medium text-red-600 transition-colors hover:text-red-800"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenDeleteModal(post);
+              }}
+              className="p-2 text-red-600 rounded hover:bg-red-50 dark:hover:bg-gray-700"
+              title="Delete"
             >
               <Trash2 className="w-5 h-5" />
             </button>
-          </>
+          </div>
         )}
         emptyMessage="No posts found. Create one to get started."
       />
@@ -300,7 +365,6 @@ export default function PostsClient({ posts }: { posts: PostWithAuthor[] }) {
   );
 }
 
-// --- ADDED: Helper component for stat cards ---
 function StatCard({
   icon: Icon,
   title,

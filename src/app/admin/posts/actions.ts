@@ -74,6 +74,9 @@ export async function getAllPosts() {
       status,
       published_at,
       author_id,
+      newsletter_sent_at, 
+      excerpt,                 
+      featured_image,          
       author:profiles (
         full_name,
         email
