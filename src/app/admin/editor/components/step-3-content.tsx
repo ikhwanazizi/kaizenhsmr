@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { Database } from "@/types/supabase";
 import FeaturedImageUploader from "./featured-image-uploader";
-import { updatePostContent } from "../../posts/actions";
+import { autoSaveDraft } from "../../posts/actions";
 import { BlockWrapper } from "./block-wrapper";
 import ParagraphBlock from "./paragraph-block";
 import dynamic from "next/dynamic";
@@ -72,56 +72,40 @@ export default function Step3Content({
 
     setAutoSaveStatus("saving");
 
-    // We must map the blocks to remove DB-only fields like id, created_at
-    const blocksToSave = blocks.map((block) => ({
-      post_id: block.post_id,
-      type: block.type,
-      content: block.content,
-      order_index: block.order_index,
-    }));
-
-    // We pass the title/excerpt from the `post` state, and the new blocks
-    const result = await updatePostContent(
+    // This now calls your new draft function
+    const result = await autoSaveDraft(
       post.id,
-      { title: post.title, excerpt: post.excerpt },
-      blocksToSave
+      post, // Pass the whole post state (which has title, excerpt, etc.)
+      blocks // Pass the whole blocks state
     );
 
     if (result.success) {
       setAutoSaveStatus("saved");
     } else {
-      setAutoSaveStatus("idle"); // Or you could set an "error" state
+      setAutoSaveStatus("idle");
     }
-  }, [post.id, post.title, post.excerpt, blocks, setAutoSaveStatus]);
+  }, [post, blocks, setAutoSaveStatus, post.id]);
 
   // This effect listens for changes and sets the debounce timer
   useEffect(() => {
-    // Don't save on the very first render
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-
-    // When changes are detected, set status to "idle" (e.g., "typing...")
     setAutoSaveStatus("idle");
-
-    // Clear any existing timer
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
-
-    // Set a new timer to call savePost after 2 seconds (2000ms)
     debounceTimer.current = setTimeout(() => {
       savePost();
     }, 2000);
 
-    // Cleanup timer on unmount
     return () => {
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [post.title, post.excerpt, blocks, savePost, setAutoSaveStatus]);
+  }, [post, blocks, savePost, setAutoSaveStatus]);
   // --- END: Autosave Logic ---
 
   // Expose a function to get all blocks as JSON

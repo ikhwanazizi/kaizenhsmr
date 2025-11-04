@@ -7,7 +7,6 @@ import type { Database } from "@/types/supabase";
 import {
   updatePostCategory,
   updatePostDetails,
-  updatePostContent,
   publishPost,
 } from "../../posts/actions";
 import { Loader2, Check } from "lucide-react";
@@ -54,13 +53,14 @@ export default function EditorClient({
   };
 
   const handleNext = async () => {
+    let success = false; // <-- DEFINED HERE
+
     // Validate Step 2 before proceeding
     if (currentStep === 2) {
-      const errors = [];
+      const errors: string[] = []; // <-- DEFINED HERE
       if (!post.slug || post.slug.trim() === "") {
         errors.push("URL slug is required");
       }
-      // New check for real-time slug validity
       if (!isSlugValid) {
         errors.push(
           "URL slug is already taken. Please choose a different one."
@@ -84,39 +84,37 @@ export default function EditorClient({
     }
 
     setIsSaving(true);
-    let success = false;
 
     if (currentStep === 2) {
-      const result = await updatePostDetails(post.id, post);
-      if (result.success) setCurrentStep(3);
-      success = result.success;
-    } else if (currentStep === 3) {
-      const editorData = getEditorContentRef.current?.();
-      if (editorData && editorData.blocks) {
-        const blocksToSave = editorData.blocks.map((block: PostBlock) => ({
-          post_id: block.post_id,
-          type: block.type,
-          content: block.content,
-          order_index: block.order_index,
-        }));
+      // Step 2 (SEO) now saves to DRAFT fields
+      const result = await updatePostDetails(post.id, {
+        // Update draft fields from state
+        draft_title: post.title,
+        draft_slug: post.slug, // <-- ADDED DRAFT SLUG
+        draft_seo_meta_title: post.seo_meta_title,
+        draft_seo_meta_description: post.seo_meta_description,
+        draft_seo_og_image: post.seo_og_image,
 
-        const result = await updatePostContent(
-          post.id,
-          { title: post.title, excerpt: post.excerpt },
-          blocksToSave
-        );
+        // Also update live title/slug for editor consistency
+        title: post.title,
+        slug: post.slug,
 
-        if (result.success) {
-          setCurrentStep(4);
-        } else {
-          alert(result.message || "Failed to save content");
-        }
-        success = result.success;
+        // Mark as having changes
+        has_unpublished_changes: true,
+      });
+
+      if (result.success) {
+        setCurrentStep(3);
       } else {
-        alert("No content to save");
-        success = false;
+        alert(result.message || "Failed to save SEO details");
       }
+      success = result.success; // <-- ASSIGN VALUE
+    } else if (currentStep === 3) {
+      // Step 3 (Content) no longer needs to save, autosave did it.
+      setCurrentStep(4);
+      success = true; // <-- ASSIGN VALUE
     } else if (currentStep === 4) {
+      // Step 4 (Review) logic stays the same
       const result = await publishPost(post.id);
       if (result.success) {
         alert("Post published successfully!");
@@ -124,10 +122,10 @@ export default function EditorClient({
       } else {
         alert(result.message);
       }
-      success = result.success;
+      success = result.success; // <-- ASSIGN VALUE
     } else {
       setCurrentStep(currentStep + 1);
-      success = true;
+      success = true; // <-- ASSIGN VALUE
     }
 
     setIsSaving(false);

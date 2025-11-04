@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       admin_audit_log: {
@@ -437,9 +412,19 @@ export type Database = {
           author_id: string | null
           category: string
           created_at: string | null
+          draft_blocks: Json | null
+          draft_excerpt: string | null
+          draft_featured_image: string | null
+          draft_featured_image_alt: string | null
+          draft_seo_meta_description: string | null
+          draft_seo_meta_title: string | null
+          draft_seo_og_image: string | null
+          draft_slug: string | null
+          draft_title: string | null
           excerpt: string | null
           featured_image: string | null
           featured_image_alt: string | null
+          has_unpublished_changes: boolean | null
           id: string
           last_autosaved_at: string | null
           metadata: Json | null
@@ -461,9 +446,19 @@ export type Database = {
           author_id?: string | null
           category: string
           created_at?: string | null
+          draft_blocks?: Json | null
+          draft_excerpt?: string | null
+          draft_featured_image?: string | null
+          draft_featured_image_alt?: string | null
+          draft_seo_meta_description?: string | null
+          draft_seo_meta_title?: string | null
+          draft_seo_og_image?: string | null
+          draft_slug?: string | null
+          draft_title?: string | null
           excerpt?: string | null
           featured_image?: string | null
           featured_image_alt?: string | null
+          has_unpublished_changes?: boolean | null
           id?: string
           last_autosaved_at?: string | null
           metadata?: Json | null
@@ -485,9 +480,19 @@ export type Database = {
           author_id?: string | null
           category?: string
           created_at?: string | null
+          draft_blocks?: Json | null
+          draft_excerpt?: string | null
+          draft_featured_image?: string | null
+          draft_featured_image_alt?: string | null
+          draft_seo_meta_description?: string | null
+          draft_seo_meta_title?: string | null
+          draft_seo_og_image?: string | null
+          draft_slug?: string | null
+          draft_title?: string | null
           excerpt?: string | null
           featured_image?: string | null
           featured_image_alt?: string | null
+          has_unpublished_changes?: boolean | null
           id?: string
           last_autosaved_at?: string | null
           metadata?: Json | null
@@ -561,12 +566,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      generate_short_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      generate_short_id: { Args: never; Returns: string }
       get_all_users_with_profiles: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           created_by_id: string
           created_by_name: string
@@ -587,18 +589,9 @@ export type Database = {
           total_sent: number
         }[]
       }
-      get_my_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_user_last_sign_in: {
-        Args: { user_id: string }
-        Returns: string
-      }
-      get_user_status_by_email: {
-        Args: { _email: string }
-        Returns: string
-      }
+      get_my_role: { Args: never; Returns: string }
+      get_user_last_sign_in: { Args: { user_id: string }; Returns: string }
+      get_user_status_by_email: { Args: { _email: string }; Returns: string }
     }
     Enums: {
       newsletter_status: "subscribed" | "unverified" | "unsubscribed"
@@ -727,9 +720,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       newsletter_status: ["subscribed", "unverified", "unsubscribed"],
