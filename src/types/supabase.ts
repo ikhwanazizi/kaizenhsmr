@@ -147,6 +147,30 @@ export type Database = {
           },
         ]
       }
+      email_send_log: {
+        Row: {
+          email_type: string
+          error_message: string | null
+          id: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          email_type: string
+          error_message?: string | null
+          id?: string
+          sent_at?: string | null
+          status: string
+        }
+        Update: {
+          email_type?: string
+          error_message?: string | null
+          id?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       newsletter_campaigns: {
         Row: {
           completed_at: string | null
@@ -155,8 +179,11 @@ export type Database = {
           id: string
           post_id: string
           preview_text: string | null
+          queued_count: number | null
+          scheduled_at: string | null
           sent_at: string | null
           sent_by: string
+          sent_count: number | null
           status: string | null
           subject: string
           total_failed: number | null
@@ -170,8 +197,11 @@ export type Database = {
           id?: string
           post_id: string
           preview_text?: string | null
+          queued_count?: number | null
+          scheduled_at?: string | null
           sent_at?: string | null
           sent_by: string
+          sent_count?: number | null
           status?: string | null
           subject: string
           total_failed?: number | null
@@ -185,8 +215,11 @@ export type Database = {
           id?: string
           post_id?: string
           preview_text?: string | null
+          queued_count?: number | null
+          scheduled_at?: string | null
           sent_at?: string | null
           sent_by?: string
+          sent_count?: number | null
           status?: string | null
           subject?: string
           total_failed?: number | null
@@ -617,6 +650,7 @@ export type Database = {
         }[]
       }
       get_my_role: { Args: never; Returns: string }
+      get_remaining_daily_email_quota: { Args: never; Returns: number }
       get_user_last_sign_in: { Args: { user_id: string }; Returns: string }
       get_user_status_by_email: { Args: { _email: string }; Returns: string }
     }

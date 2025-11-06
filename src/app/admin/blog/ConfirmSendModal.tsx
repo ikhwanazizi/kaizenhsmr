@@ -10,12 +10,13 @@ import {
   Send,
   X,
   FileText,
+  CalendarClock, // <-- IMPORT THIS
 } from "lucide-react";
 // 1. Import the new action
 import {
   getNewsletterModalData,
   sendTestNewsletter,
-  sendNewsletterToAll, // <-- IMPORT THIS
+  scheduleNewsletter, // <-- IMPORT THE RENAMED ACTION
 } from "./newsletterActions";
 import type { PostWithAuthor } from "./posts-client";
 import { toast } from "react-hot-toast";
@@ -45,7 +46,7 @@ export default function ConfirmSendModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSendingTest, setIsSendingTest] = useState(false);
-  const [isSendingAll, setIsSendingAll] = useState(false);
+  const [isScheduling, setIsScheduling] = useState(false); // <-- Renamed
 
   useEffect(() => {
     if (isOpen && post) {
@@ -80,31 +81,32 @@ export default function ConfirmSendModal({
   };
 
   // --- 2. UPDATE THIS FUNCTION ---
-  const handleSendAll = async () => {
+  const handleScheduleAll = async () => {
     if (!data || !post) return;
 
     if (
       !confirm(
-        `Are you absolutely sure you want to send this newsletter to ALL ${data.subscriberCount} subscribers?\n\nThis action cannot be undone.`
+        `Are you sure you want to SCHEDULE this newsletter for all ${data.subscriberCount} subscribers?\n\nIt will be sent in batches based on the daily quota.`
       )
     ) {
       return;
     }
 
-    setIsSendingAll(true);
+    setIsScheduling(true); // <-- Use renamed state
     const toastId = toast.loading(
-      `Sending newsletter to ${data.subscriberCount} subscribers...`
+      `Scheduling newsletter for ${data.subscriberCount} subscribers...`
     );
 
-    const result = await sendNewsletterToAll(post.id);
+    // <-- Call the renamed action
+    const result = await scheduleNewsletter(post.id);
 
     if (result.success) {
-      toast.success(result.message || "Newsletter sent!", { id: toastId });
+      toast.success(result.message || "Campaign scheduled!", { id: toastId });
       onSendComplete(); // This closes modal and refreshes the list
     } else {
-      toast.error(`Failed to send: ${result.message}`, { id: toastId });
+      toast.error(`Failed to schedule: ${result.message}`, { id: toastId });
     }
-    setIsSendingAll(false);
+    setIsScheduling(false); // <-- Use renamed state
   };
 
   if (!isOpen || !post) return null;
@@ -114,7 +116,7 @@ export default function ConfirmSendModal({
       <div className="w-full max-w-2xl p-6 bg-white rounded-lg shadow-xl dark:bg-gray-800">
         <div className="flex items-start justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Send Newsletter
+            Schedule Newsletter
           </h2>
           <button
             onClick={onClose}
@@ -133,6 +135,7 @@ export default function ConfirmSendModal({
           )}
 
           {error && (
+            // ... (error display remains unchanged) ...
             <div className="flex flex-col items-center justify-center h-64 p-4 text-center bg-red-50 border border-red-200 rounded-lg">
               <AlertTriangle className="w-8 h-8 text-red-600" />
               <p className="mt-2 font-semibold text-red-700">
@@ -144,7 +147,7 @@ export default function ConfirmSendModal({
 
           {data && (
             <div className="space-y-4">
-              {/* Preview */}
+              {/* ... (Preview and Stats sections remain unchanged) ... */}
               <div>
                 <label className="block text-xs font-medium text-gray-500 uppercase">
                   Email Preview
@@ -173,8 +176,6 @@ export default function ConfirmSendModal({
                   </div>
                 </div>
               </div>
-
-              {/* Stats */}
               <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
                 <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 <div>
@@ -192,7 +193,7 @@ export default function ConfirmSendModal({
                 <button
                   type="button"
                   onClick={handleSendTest}
-                  disabled={isSendingTest || isSendingAll}
+                  disabled={isSendingTest || isScheduling}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-100 rounded-md dark:bg-blue-900/50 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900 disabled:opacity-50"
                 >
                   {isSendingTest ? (
@@ -204,23 +205,23 @@ export default function ConfirmSendModal({
                 </button>
                 <button
                   type="button"
-                  onClick={handleSendAll}
+                  onClick={handleScheduleAll}
                   disabled={
-                    isSendingTest || isSendingAll || data.subscriberCount === 0
+                    isSendingTest || isScheduling || data.subscriberCount === 0
                   }
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:bg-green-300"
                 >
-                  {isSendingAll ? (
+                  {isScheduling ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Send className="w-4 h-4" />
+                    <CalendarClock className="w-4 h-4" /> // <-- Changed Icon
                   )}
-                  Send to All {data.subscriberCount} Subscribers
+                  Schedule for {data.subscriberCount} Subscribers
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  disabled={isSendingAll}
+                  disabled={isScheduling}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md sm:ml-auto dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
                 >
                   Cancel

@@ -4,33 +4,25 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/supabase";
-import { Resend } from "resend"; // 1. Import Resend
-import { postNewsletterTemplate } from "@/lib/email-templates/post-newsletter-template"; // 2. Import the template
+import { Resend } from "resend";
+import { postNewsletterTemplate } from "@/lib/email-templates/post-newsletter-template";
 
-// --- 1. ADD THIS NEW HELPER FUNCTION ---
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-/**
- * Finds the first text content from Tiptap 'paragraph' blocks.
- * @param blocks An array of post_blocks from Supabase.
- * @returns The first 150 characters of text, or null.
- */
+// ... (helper functions: generatePreviewFromBlocks, createClient, createAdminClient... remain unchanged) ...
+
 function generatePreviewFromBlocks(blocks: any[]): string | null {
   if (!blocks || blocks.length === 0) return null;
-
-  // Find the first paragraph block
   const firstParagraph = blocks.find((block) => block.type === "paragraph");
   if (!firstParagraph || !firstParagraph.content?.content) return null;
-
   try {
-    // Tiptap's structure is { type: "doc", content: [ { type: "paragraph", content: [ { type: "text", text: "..." } ] } ] }
     for (const node of firstParagraph.content.content) {
       if (node.type === "paragraph" && node.content) {
         for (const innerNode of node.content) {
           if (innerNode.type === "text" && innerNode.text) {
-            // Found the first piece of text!
             let text = innerNode.text.trim();
             if (text.length > 150) {
-              // Truncate and add ellipsis
               text = text.substring(0, 150).trim() + "...";
             }
             return text;
@@ -42,12 +34,9 @@ function generatePreviewFromBlocks(blocks: any[]): string | null {
     console.error("Error parsing block content:", e);
     return null;
   }
-
-  return null; // No text found in the first paragraph
+  return null;
 }
-// --- END OF HELPER FUNCTION ---
 
-// ... (keep the createClient and createAdminClient functions)
 async function createClient() {
   const cookieStore = await cookies();
   return createServerClient<Database>(
@@ -61,16 +50,13 @@ async function createClient() {
   );
 }
 
-// Helper to create an admin-context client (bypasses RLS)
 async function createAdminClient() {
-  const cookieStore = await cookies(); // <-- 1. YOU MUST AWAIT this function
-
+  const cookieStore = await cookies();
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
       cookies: {
-        // 2. Use the 'cookieStore' variable you just created
         get: (name: string) => cookieStore.get(name)?.value,
       },
     }
@@ -81,58 +67,44 @@ export async function getNewsletterModalData(postId: string) {
   try {
     const supabase = await createClient();
     const supabaseAdmin = await createAdminClient();
-
-    // 1. Get admin user email
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user || !user.email) {
       throw new Error("Not authenticated");
     }
-
-    // 2. Get the post data
     const { data: post, error: postError } = await supabase
       .from("posts")
       .select("title, excerpt, featured_image")
       .eq("id", postId)
       .single();
-
     if (postError) {
       throw new Error(`Post not found: ${postError.message}`);
     }
-
-    // --- 3. NEW: FETCH POST BLOCKS ---
     const { data: postBlocks, error: blocksError } = await supabase
       .from("post_blocks")
       .select("type, content")
       .eq("post_id", postId)
       .order("order_index", { ascending: true });
-
     if (blocksError) {
       throw new Error(`Could not fetch post content: ${blocksError.message}`);
     }
-
-    // --- 4. NEW: AUTO-GENERATE PREVIEW ---
     const postPreview =
-      post.excerpt || // Use the manual excerpt if it exists
-      generatePreviewFromBlocks(postBlocks) || // Otherwise, generate from blocks
-      "Read the full article on our website."; // Fallback
-
-    // 5. Get subscriber count
+      post.excerpt ||
+      generatePreviewFromBlocks(postBlocks) ||
+      "Read the full article on our website.";
     const { count, error: countError } = await supabaseAdmin
       .from("newsletter_subscribers")
       .select("*", { count: "exact", head: true })
       .eq("status", "subscribed");
-
     if (countError) {
       throw new Error(`Could not count subscribers: ${countError.message}`);
     }
-
     return {
       success: true,
       adminEmail: user.email,
       postTitle: post.title || "Untitled Post",
-      postPreview: postPreview, // <-- Use our new auto-generated preview
+      postPreview: postPreview,
       postImage: post.featured_image,
       subscriberCount: count || 0,
     };
@@ -143,65 +115,50 @@ export async function getNewsletterModalData(postId: string) {
 }
 
 export async function sendTestNewsletter(postId: string, testEmail: string) {
-  const resend = new Resend(process.env.RESEND_API_KEY);
   const supabase = await createClient();
-
   try {
-    // 1. Get the full post data
     const { data: post, error: postError } = await supabase
       .from("posts")
       .select("title, excerpt, featured_image, slug, category")
       .eq("id", postId)
       .single();
-
     if (postError || !post) {
       throw new Error("Post not found.");
     }
-
-    // --- 2. NEW: FETCH POST BLOCKS ---
     const { data: postBlocks, error: blocksError } = await supabase
       .from("post_blocks")
       .select("type, content")
       .eq("post_id", postId)
       .order("order_index", { ascending: true });
-
     if (blocksError) {
       throw new Error("Could not fetch post content.");
     }
-
-    // --- 3. NEW: AUTO-GENERATE PREVIEW ---
     const postPreview =
-      post.excerpt || // Use the manual excerpt if it exists
-      generatePreviewFromBlocks(postBlocks) || // Otherwise, generate from blocks
-      "Read the full article on our website."; // Fallback
-
-    // 4. Construct URLs
+      post.excerpt ||
+      generatePreviewFromBlocks(postBlocks) ||
+      "Read the full article on our website.";
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kaizenhrms.com";
     const postPath =
       post.category === "blog"
         ? "resources/blog-articles"
         : "company/developments";
     const readMoreUrl = `${siteUrl}/${postPath}/${post.slug}`;
-    const unsubscribeUrl = `${siteUrl}/newsletter/unsubscribe?token=test-token`; // Test token
-
-    // 5. Send email using Resend
-    const { data, error } = await resend.emails.send({
+    const unsubscribeUrl = `${siteUrl}/newsletter/unsubscribe?token=test-token`;
+    const { error } = await resend.emails.send({
       from: "KaizenHR <onboarding@resend.dev>",
       to: [testEmail],
       subject: `[TEST] ${post.title}`,
       html: postNewsletterTemplate({
         postTitle: post.title || "Untitled Post",
-        postPreviewText: postPreview, // <-- Use our new auto-generated preview
+        postPreviewText: postPreview,
         postImageUrl: post.featured_image,
         readMoreUrl: readMoreUrl,
         unsubscribeUrl: unsubscribeUrl,
       }),
     });
-
     if (error) {
       throw new Error(error.message);
     }
-
     return { success: true };
   } catch (error: any) {
     console.error("Error sending test newsletter:", error.message);
@@ -209,15 +166,15 @@ export async function sendTestNewsletter(postId: string, testEmail: string) {
   }
 }
 
-export async function sendNewsletterToAll(postId: string) {
-  const resend = new Resend(process.env.RESEND_API_KEY);
+export async function scheduleNewsletter(postId: string) {
   const supabase = await createClient();
   const supabaseAdmin = await createAdminClient();
 
   try {
     // 1. --- Authorization ---
-    // First, get the current user and check if they are a super_admin
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated.");
 
     const { data: profile } = await supabase
@@ -233,12 +190,14 @@ export async function sendNewsletterToAll(postId: string) {
     // 2. --- Get Post Data ---
     const { data: post, error: postError } = await supabase
       .from("posts")
-      .select("title, excerpt, featured_image, slug, category, newsletter_sent_at")
+      .select("title, excerpt, featured_image, newsletter_sent_at")
       .eq("id", postId)
       .single();
 
     if (postError || !post) throw new Error("Post not found.");
-    if (post.newsletter_sent_at) throw new Error("This newsletter has already been sent.");
+    if (post.newsletter_sent_at) {
+      throw new Error("This newsletter has already been sent or is scheduled.");
+    }
 
     // 3. --- Get Post Content (for Preview) ---
     const { data: postBlocks, error: blocksError } = await supabase
@@ -257,12 +216,15 @@ export async function sendNewsletterToAll(postId: string) {
     // 4. --- Get Subscribers ---
     const { data: subscribers, error: subsError } = await supabaseAdmin
       .from("newsletter_subscribers")
-      .select("id, email")
+      .select("id, email, unsubscribe_token")
       .eq("status", "subscribed");
 
     if (subsError) throw new Error("Could not fetch subscribers.");
     if (!subscribers || subscribers.length === 0) {
-      return { success: false, message: "There are no subscribers to send to." };
+      return {
+        success: false,
+        message: "There are no subscribers to send to.",
+      };
     }
 
     // 5. --- Create Campaign Log ---
@@ -274,98 +236,263 @@ export async function sendNewsletterToAll(postId: string) {
         preview_text: postPreview,
         sent_by: user.id,
         total_recipients: subscribers.length,
-        status: "sending",
+        status: "scheduled", // <-- Set status to 'scheduled'
+        scheduled_at: new Date().toISOString(), // <-- Set schedule time
+        queued_count: subscribers.length, // <-- All are queued initially
+        sent_count: 0,
       })
       .select("id")
       .single();
 
     if (campaignError || !campaign) {
-      throw new Error(`Failed to create campaign log: ${campaignError?.message}`);
+      throw new Error(
+        `Failed to create campaign log: ${campaignError?.message}`
+      );
     }
 
-    // 6. --- Prepare and Send All Emails in Parallel ---
+    // 6. --- Create 'queued' entries for all subscribers ---
+    const logEntries = subscribers.map((sub) => ({
+      campaign_id: campaign.id,
+      subscriber_id: sub.id,
+      email: sub.email,
+      status: "queued", // <-- All are 'queued'
+    }));
+
+    if (logEntries.length > 0) {
+      const { error: logError } = await supabaseAdmin
+        .from("newsletter_send_log")
+        .insert(logEntries);
+
+      if (logError) {
+        // Rollback campaign creation if logging fails
+        await supabaseAdmin
+          .from("newsletter_campaigns")
+          .delete()
+          .eq("id", campaign.id);
+        throw new Error(`Failed to queue recipients: ${logError.message}`);
+      }
+    }
+
+    // 7. --- Mark the post as having a newsletter sent/scheduled ---
+    // This prevents it from being sent again
+    await supabase
+      .from("posts")
+      .update({ newsletter_sent_at: new Date().toISOString() })
+      .eq("id", postId);
+
+    return {
+      success: true,
+      message: `Campaign scheduled for ${subscribers.length} subscribers!`,
+    };
+  } catch (error: any) {
+    console.error("Error scheduling newsletter:", error.message);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * NEW: This is the internal function to be run by a cron job.
+ * It finds a queued campaign and sends a batch of emails
+ * according to the remaining daily quota.
+ */
+export async function processNewsletterQueue() {
+  console.log("CRON: processNewsletterQueue started...");
+  const supabaseAdmin = await createAdminClient();
+
+  try {
+    // 1. --- Get Remaining Quota ---
+    const { data: quota, error: rpcError } = await supabaseAdmin.rpc(
+      "get_remaining_daily_email_quota"
+    );
+
+    if (rpcError) throw new Error(`Failed to get quota: ${rpcError.message}`);
+
+    const remaining_quota = quota as number;
+    console.log(`CRON: Remaining daily quota: ${remaining_quota}`);
+
+    if (remaining_quota <= 0) {
+      console.log("CRON: No quota remaining. Exiting.");
+      return { success: true, message: "No quota remaining." };
+    }
+
+    // 2. --- Find a Campaign to Process ---
+    // Find the oldest scheduled or in-progress campaign
+    const { data: campaign, error: campaignError } = await supabaseAdmin
+      .from("newsletter_campaigns")
+      .select("*")
+      .in("status", ["scheduled", "in_progress"])
+      .order("scheduled_at", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (campaignError || !campaign) {
+      console.log("CRON: No campaigns to process.");
+      return { success: true, message: "No campaigns to process." };
+    }
+
+    // Mark as 'sending' to prevent concurrent runs
+    if (campaign.status === "scheduled") {
+      await supabaseAdmin
+        .from("newsletter_campaigns")
+        .update({ status: "in_progress" })
+        .eq("id", campaign.id);
+    }
+
+    // 3. --- Get Post and Subscribers Batch ---
+    const { data: post, error: postError } = await supabaseAdmin
+      .from("posts")
+      .select("title, featured_image, slug, category")
+      .eq("id", campaign.post_id)
+      .single();
+
+    if (postError || !post) {
+      throw new Error(`Post ${campaign.post_id} not found for campaign.`);
+    }
+
+    const { data: batch, error: batchError } = await supabaseAdmin
+      .from("newsletter_send_log")
+      .select("id, email, subscriber_id")
+      .eq("campaign_id", campaign.id)
+      .eq("status", "queued")
+      .limit(remaining_quota);
+
+    if (batchError) throw new Error("Failed to fetch recipient batch.");
+
+    if (!batch || batch.length === 0) {
+      // No more queued recipients for this campaign, mark as completed
+      await supabaseAdmin
+        .from("newsletter_campaigns")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          queued_count: 0,
+        })
+        .eq("id", campaign.id);
+      console.log(`CRON: Campaign ${campaign.id} completed.`);
+      return { success: true, message: "Campaign completed." };
+    }
+
+    console.log(
+      `CRON: Found campaign ${campaign.id}. Sending to ${batch.length} recipients...`
+    );
+
+    // 4. --- Prepare and Send Batch ---
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kaizenhrms.com";
-    const postPath = post.category === "blog" ? "resources/blog-articles" : "company/developments";
+    const postPath =
+      post.category === "blog"
+        ? "resources/blog-articles"
+        : "company/developments";
     const readMoreUrl = `${siteUrl}/${postPath}/${post.slug}`;
 
-    const sendPromises = subscribers.map(subscriber => {
-      const unsubscribeUrl = `${siteUrl}/api/newsletter/unsubscribe?id=${subscriber.id}`;
+    const sendPromises = batch.map(async (recipient) => {
+      // Get the unique unsubscribe token for this user
+      const { data: sub } = await supabaseAdmin
+        .from("newsletter_subscribers")
+        .select("unsubscribe_token")
+        .eq("id", recipient.subscriber_id)
+        .single();
       
+      const unsubscribeUrl = `${siteUrl}/api/newsletter/unsubscribe?id=${sub?.unsubscribe_token || recipient.subscriber_id}`;
+
       return resend.emails.send({
         from: "KaizenHR <onboarding@resend.dev>",
-        to: [subscriber.email],
-        subject: post.title || "A new post from KaizenHR",
+        to: [recipient.email],
+        subject: campaign.subject,
         html: postNewsletterTemplate({
-          postTitle: post.title || "Untitled Post",
-          postPreviewText: postPreview,
+          postTitle: campaign.subject,
+          postPreviewText: campaign.preview_text || "Read the full article...",
           postImageUrl: post.featured_image,
           readMoreUrl: readMoreUrl,
           unsubscribeUrl: unsubscribeUrl,
         }),
       }).then(response => ({
         ...response,
-        subscriber_id: subscriber.id,
-        email: subscriber.email,
+        log_id: recipient.id,
       }));
     });
 
     const results = await Promise.allSettled(sendPromises);
 
-    // 7. --- Log All Send Results ---
-    const logEntries = results.map(result => {
+    // 5. --- Log Results ---
+    let successfulSends = 0;
+    let failedSends = 0;
+    const updateLogPromises: Promise<any>[] = [];
+
+    results.forEach(result => {
       if (result.status === 'fulfilled' && !result.value.error) {
-        return {
-          campaign_id: campaign.id,
-          subscriber_id: result.value.subscriber_id,
-          email: result.value.email,
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-        };
+        // Success
+        successfulSends++;
+        // --- ✅ FIX 1: Wrap in an async IIFE to return a true promise ---
+        updateLogPromises.push(
+          (async () => {
+            return supabaseAdmin
+              .from("newsletter_send_log")
+              .update({
+                status: "sent",
+                sent_at: new Date().toISOString(),
+              })
+              .eq("id", result.value.log_id)
+              .select(); // .select() is still good practice
+          })()
+        );
       } else {
-        const error = result.status === 'rejected' ? result.reason : (result.value.error as any);
-        return {
-          campaign_id: campaign.id,
-          subscriber_id: (result as any).value?.subscriber_id || null,
-          email: (result as any).value?.email || 'unknown',
-          status: 'failed',
-          error_message: error?.message || 'Failed to send',
-        };
+        // Failure
+        failedSends++;
+        const error = (result as any).reason || (result as any).value?.error;
+        // --- ✅ FIX 2: Wrap in an async IIFE to return a true promise ---
+        updateLogPromises.push(
+          (async () => {
+            return supabaseAdmin
+              .from("newsletter_send_log")
+              .update({
+                status: "failed",
+                error_message: error?.message || "Send failed",
+              })
+              .eq("id", (result as any).value?.log_id || (result as any).reason?.log_id)
+              .select(); // .select() is still good practice
+          })()
+        );
       }
     });
 
-    // We have to filter out null subscriber_id entries for the log
-    const validLogEntries = logEntries.filter(entry => entry.subscriber_id);
-    if (validLogEntries.length > 0) {
-      await supabaseAdmin.from("newsletter_send_log").insert(validLogEntries);
-    }
-    
-    const successfulSends = validLogEntries.filter(e => e.status === 'sent').length;
-    const failedSends = validLogEntries.length - successfulSends;
+    await Promise.all(updateLogPromises);
+    console.log(
+      `CRON: Batch complete. Success: ${successfulSends}, Failed: ${failedSends}`
+    );
 
-    // 8. --- Update Campaign and Post ---
+    // 6. --- Update Campaign Counters ---
+    const newQueuedCount = Math.max(0, (campaign.queued_count || 0) - batch.length);
+    const newSentCount = (campaign.sent_count || 0) + successfulSends;
+    const newFailedCount = (campaign.total_failed || 0) + failedSends;
+    
     await supabaseAdmin
       .from("newsletter_campaigns")
       .update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        total_sent: successfulSends,
-        total_failed: failedSends,
+        sent_count: newSentCount,
+        queued_count: newQueuedCount,
+        total_failed: newFailedCount,
+        status: newQueuedCount === 0 ? "completed" : "in_progress",
+        completed_at: newQueuedCount === 0 ? new Date().toISOString() : null,
       })
       .eq("id", campaign.id);
 
-    await supabase
-      .from("posts")
-      .update({ newsletter_sent_at: new Date().toISOString() })
-      .eq("id", postId);
-
-    return { 
-      success: true, 
-      message: `Newsletter sent to ${successfulSends} subscribers. ${failedSends} failed.` 
+    return {
+      success: true,
+      message: `Batch processed. Sent: ${successfulSends}, Failed: ${failedSends}.`,
     };
-
   } catch (error: any) {
-    console.error("Error sending newsletter to all:", error.message);
+    console.error("CRON: Error processing queue:", error.message);
+    // If something fails, try to mark the campaign as 'failed' to avoid retries
+    const campaignId = (error as any).campaign_id;
+    if (campaignId) {
+      await supabaseAdmin
+        .from("newsletter_campaigns")
+        .update({
+          status: "failed",
+          error_details: { error: error.message },
+        })
+        .eq("id", campaignId);
+    }
     return { success: false, message: error.message };
   }
 }
-

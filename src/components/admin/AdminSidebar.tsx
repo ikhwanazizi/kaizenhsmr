@@ -16,6 +16,7 @@ import {
   Key,
   Shield,
   ScrollText,
+  Send, // <-- 1. IMPORT THE NEW ICON
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -69,7 +70,7 @@ export default function AdminSidebar({
 
   // Helper function to check if link is active
   const isActive = (path: string) => {
-    return pathname === path;
+    return pathname.startsWith(path); // Use startsWith to keep it active on sub-pages
   };
 
   // Navigation Link Component
@@ -149,6 +150,12 @@ export default function AdminSidebar({
                 href="/admin/subscribers"
                 icon={Users}
                 label="Subscribers"
+              />
+              {/* --- 2. ADD THE NEW LINK HERE --- */}
+              <NavLink
+                href="/admin/newsletter"
+                icon={Send}
+                label="Newsletter"
               />
             </div>
           </div>

@@ -1,10 +1,10 @@
-// app/api/newsletter/subscribe/route.ts
+// src/app/api/newsletter/subscribe/route.ts
 
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import VerificationEmail from "@/components/emails/VerificationEmail";
-import { render } from "@react-email/render"; // <-- CHANGE: Import the render function
+import { render } from "@react-email/render";
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -72,23 +72,33 @@ export async function POST(req: NextRequest) {
     const emailHtml = await render(VerificationEmail({ verificationUrl }));
 
     // 4. Send verification email using Resend
-    // MODIFICATION: Assign the result to a 'data' variable
     const { data, error } = await resend.emails.send({
-      // <-- CHANGE
       from: "Kaizen Newsletter <onboarding@resend.dev>",
       to: email,
       subject: "Verify Your Newsletter Subscription",
       html: emailHtml,
     });
 
-    // ADD THIS LOGGING BLOCK
+    // --- ✅ ADDED: Log this email send ---
     if (error) {
-      // <-- ADD
-      console.error("Resend Error:", error); // <-- ADD
-      return NextResponse.json({ message: error.message }, { status: 500 }); // <-- ADD
-    } // <-- ADD
+      console.error("Resend Error:", error);
+      // Log failure
+      await supabase.from("email_send_log").insert({
+        email_type: "subscriber_verification",
+        status: "failed",
+        error_message: error.message,
+      });
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    } else {
+      // Log success
+      await supabase.from("email_send_log").insert({
+        email_type: "subscriber_verification",
+        status: "sent",
+      });
+    }
+    // --- End of Log ---
 
-    console.log("Resend Success Response:", data); // <-- ADD
+    console.log("Resend Success Response:", data);
 
     return NextResponse.json(
       { message: "Subscription pending! Please check your email to verify." },

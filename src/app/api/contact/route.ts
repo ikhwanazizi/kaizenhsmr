@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ... (rest of the validation) ...
     // Validate form data
     const requiredFields = [
       "fullName",
@@ -72,8 +73,6 @@ export async function POST(req: NextRequest) {
         );
       }
     }
-
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       return NextResponse.json(
@@ -115,45 +114,57 @@ export async function POST(req: NextRequest) {
       message: formData.message || "",
     };
 
+    // --- ✅ ADDED: Log email sends ---
+    const emailLogs: any[] = [];
+
     // Send confirmation email to user
     try {
-      const { data: userData, error: userEmailError } =
-        await resend.emails.send({
-          from: "KaizenHR <onboarding@resend.dev>",
-          to: formData.email,
-          subject: "Thank You for Contacting KaizenHR",
-          html: userConfirmationTemplate(contactData),
-        });
+      const { error: userEmailError } = await resend.emails.send({
+        from: "KaizenHR <onboarding@resend.dev>",
+        to: formData.email,
+        subject: "Thank You for Contacting KaizenHR",
+        html: userConfirmationTemplate(contactData),
+      });
 
       if (userEmailError) {
         console.error("Resend Error (User):", userEmailError);
+        emailLogs.push({
+          email_type: "contact_reply",
+          status: "failed",
+          error_message: (userEmailError as Error).message,
+        });
       } else {
-        console.log("User confirmation email sent:", userData);
+        emailLogs.push({
+          email_type: "contact_reply",
+          status: "sent",
+        });
       }
     } catch (emailError) {
       console.error("Error sending user confirmation email:", emailError);
-      // Don't fail the request if email fails
     }
 
     // Send notification to super admin
     try {
-      const { data: adminData, error: adminEmailError } =
-        await resend.emails.send({
-          from: "KaizenHR Notifications <onboarding@resend.dev>",
-          to: "ikhwan0059@gmail.com",
-          subject: `🔔 New Contact Form Submission from ${formData.company}`,
-          html: adminNotificationTemplate(contactData),
-        });
+      const { error: adminEmailError } = await resend.emails.send({
+        from: "KaizenHR Notifications <onboarding@resend.dev>",
+        to: "ikhwan0059@gmail.com",
+        subject: `🔔 New Contact Form Submission from ${formData.company}`,
+        html: adminNotificationTemplate(contactData),
+      });
 
       if (adminEmailError) {
         console.error("Resend Error (Admin):", adminEmailError);
-      } else {
-        console.log("Admin notification email sent:", adminData);
       }
+      // Note: We don't log admin notifications to the *user-facing* quota
     } catch (emailError) {
       console.error("Error sending admin notification email:", emailError);
-      // Don't fail the request if email fails
     }
+
+    // Save logs to database
+    if (emailLogs.length > 0) {
+      await supabase.from("email_send_log").insert(emailLogs);
+    }
+    // --- End of Log ---
 
     return NextResponse.json(
       {

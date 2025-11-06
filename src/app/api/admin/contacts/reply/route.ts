@@ -15,7 +15,7 @@ const supabaseAdmin = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Helper to get authenticated user (no changes)
+// ... (getAuthUser function remains unchanged) ...
 async function getAuthUser(req: NextRequest) {
   const cookieStore = await cookies();
 
@@ -63,7 +63,8 @@ async function getAuthUser(req: NextRequest) {
   return { user, profile };
 }
 
-// POST - Send reply (in-app method)
+
+// POST - Send reply
 export async function POST(req: NextRequest) {
   try {
     const authData = await getAuthUser(req);
@@ -119,15 +120,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // --- (FIXED) ADD AUDIT LOG ---
-    // Create the new descriptive message
+    // ... (Audit log logic remains) ...
     const message = `Replied to contact: ${contact.full_name} from ${contact.company} (${contact.business_email})`;
-
     await supabaseAdmin.from("admin_audit_log").insert({
       admin_id: authData.user.id,
       action: "contact.reply",
       details: {
-        message: message, // Use the new descriptive message
+        message: message,
         contact_id: contactId,
         contact_name: contact.full_name,
         contact_email: contact.business_email,
@@ -135,10 +134,14 @@ export async function POST(req: NextRequest) {
         reply_method: replyMethod,
       },
     });
-    // --- END LOG ---
 
     // If in-app method, send email
     if (replyMethod === "in_app") {
+      // --- ✅ ADDED: Log this email send ---
+      let logStatus: "sent" | "failed" = "sent";
+      let logError: string | null = null;
+      // --- End of Log Init ---
+
       try {
         const emailData: ReplyEmailData = {
           contactName: contact.full_name,
@@ -150,22 +153,33 @@ export async function POST(req: NextRequest) {
 
         const recipientEmail = contact.business_email;
 
-        const { data: emailResult, error: emailError } =
-          await resend.emails.send({
-            from: "KaizenHR <onboarding@resend.dev>",
-            to: recipientEmail,
-            subject: `Re: Your KaizenHR Inquiry`,
-            html: replyEmailTemplate(emailData),
-          });
+        const { error: emailError } = await resend.emails.send({
+          from: "KaizenHR <onboarding@resend.dev>",
+          to: recipientEmail,
+          subject: `Re: Your KaizenHR Inquiry`,
+          html: replyEmailTemplate(emailData),
+        });
 
         if (emailError) {
           console.error("Resend Error:", emailError);
+          logStatus = "failed"; // Mark for logging
+          logError = (emailError as Error).message; // Mark for logging
         } else {
           console.log("Reply email sent successfully to:", recipientEmail);
         }
       } catch (emailError) {
         console.error("Error sending reply email:", emailError);
+        logStatus = "failed";
+        logError = (emailError as Error).message;
       }
+
+      // --- ✅ ADDED: Save the log entry ---
+      await supabaseAdmin.from("email_send_log").insert({
+        email_type: "contact_reply",
+        status: logStatus,
+        error_message: logError,
+      });
+      // --- End of Log Save ---
     }
 
     return NextResponse.json(
@@ -185,7 +199,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET - Fetch all replies for a contact (no changes)
+// ... (GET function remains unchanged) ...
 export async function GET(req: NextRequest) {
   try {
     const authData = await getAuthUser(req);
