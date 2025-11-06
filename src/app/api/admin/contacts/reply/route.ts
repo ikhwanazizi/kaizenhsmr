@@ -15,7 +15,7 @@ const supabaseAdmin = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Helper to get authenticated user
+// Helper to get authenticated user (no changes)
 async function getAuthUser(req: NextRequest) {
   const cookieStore = await cookies();
 
@@ -72,7 +72,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is super_admin
     if (authData.profile.role !== "super_admin") {
       return NextResponse.json(
         { error: "Only super admins can send replies" },
@@ -83,7 +82,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { contactId, replyMessage, replyMethod } = body;
 
-    // Validate inputs
     if (!contactId || !replyMessage || !replyMethod) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -91,7 +89,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch contact details
     const { data: contact, error: contactError } = await supabaseAdmin
       .from("contacts")
       .select("*")
@@ -122,6 +119,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // --- (FIXED) ADD AUDIT LOG ---
+    // Create the new descriptive message
+    const message = `Replied to contact: ${contact.full_name} from ${contact.company} (${contact.business_email})`;
+
+    await supabaseAdmin.from("admin_audit_log").insert({
+      admin_id: authData.user.id,
+      action: "contact.reply",
+      details: {
+        message: message, // Use the new descriptive message
+        contact_id: contactId,
+        contact_name: contact.full_name,
+        contact_email: contact.business_email,
+        contact_company: contact.company,
+        reply_method: replyMethod,
+      },
+    });
+    // --- END LOG ---
+
     // If in-app method, send email
     if (replyMethod === "in_app") {
       try {
@@ -133,7 +148,6 @@ export async function POST(req: NextRequest) {
           originalMessage: contact.message || "No message provided.",
         };
 
-        // For testing: only send if recipient is verified or use your verified email
         const recipientEmail = contact.business_email;
 
         const { data: emailResult, error: emailError } =
@@ -146,21 +160,13 @@ export async function POST(req: NextRequest) {
 
         if (emailError) {
           console.error("Resend Error:", emailError);
-          console.error(
-            "Note: Make sure the recipient email is verified in Resend for testing"
-          );
-          // Don't fail the request, reply is saved
         } else {
           console.log("Reply email sent successfully to:", recipientEmail);
-          console.log("Email ID:", emailResult);
         }
       } catch (emailError) {
         console.error("Error sending reply email:", emailError);
-        // Don't fail the request, reply is saved
       }
     }
-
-    // Note: Status and last_reply_at are updated automatically by the trigger
 
     return NextResponse.json(
       {
@@ -179,7 +185,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET - Fetch all replies for a contact
+// GET - Fetch all replies for a contact (no changes)
 export async function GET(req: NextRequest) {
   try {
     const authData = await getAuthUser(req);

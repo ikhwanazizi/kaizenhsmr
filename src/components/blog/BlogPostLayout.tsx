@@ -55,30 +55,36 @@ export default function BlogPostLayout({
 
   useEffect(() => {
     fetchPost();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, category]);
 
   useEffect(() => {
     if (blocks.length > 0) {
       generateTOC();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocks]);
 
   const fetchPost = async () => {
     try {
+      // --- THIS QUERY IS NOW FIXED ---
+      // We must specify which foreign key to use for the join
       const { data: postData, error: postError } = await supabase
         .from("posts")
-        .select(`*, author:profiles(full_name, email)`)
+        .select(
+          `*, 
+           author:profiles!posts_author_id_fkey(full_name, email)`
+        )
         .eq("slug", slug)
         .eq("category", category)
         .eq("status", "published")
         .single();
+      // --- END FIX ---
 
-      // MODIFIED: Only throw if it's a real error, not a "not found" (PGRST116)
       if (postError && postError.code !== "PGRST116") {
         throw postError;
       }
 
-      // If postData exists (not a 404), fetch its blocks
       if (postData) {
         const { data: blocksData, error: blocksError } = await supabase
           .from("post_blocks")
@@ -101,14 +107,16 @@ export default function BlogPostLayout({
   const generateTOC = () => {
     const headings: TOCItem[] = [];
     blocks.forEach((block) => {
+      const content = block.content as any;
       if (
         block.type === "heading" &&
-        (block.content.level === 2 || block.content.level === 3)
+        content &&
+        (content.level === 2 || content.level === 3)
       ) {
         headings.push({
           id: `heading-${block.id}`,
-          text: block.content.text,
-          level: block.content.level,
+          text: content.text,
+          level: content.level,
         });
       }
     });
@@ -131,7 +139,6 @@ export default function BlogPostLayout({
     return (
       <div className="min-h-screen flex flex-col bg-white">
         <Navbar />
-        {/* This section now ensures the white space fills nicely (min 700–800px) */}
         <div className="flex flex-1 items-center justify-center pt-16 min-h-[700px] md:min-h-[800px]">
           <div className="max-w-4xl mx-auto px-4 text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -160,12 +167,9 @@ export default function BlogPostLayout({
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
-      {/* CHANGED: This whole block is updated for the new banner layout */}
       <div className="relative bg-slate-50 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Grid for desktop: Text left, Image right. Stacks on mobile: Text top, Image bottom. */}
           <div className="grid md:grid-cols-5 gap-12 items-center py-12">
-            {/* Text Content (Left on Desktop, Top on Mobile) */}
             <div className="md:col-span-2 p-6 md:p-0 flex flex-col justify-center">
               <p className="text-sm text-gray-500 mb-2">
                 {new Date(post.published_at).toLocaleDateString("en-US", {
@@ -187,7 +191,6 @@ export default function BlogPostLayout({
               </div>
             </div>
 
-            {/* Image (Right on Desktop, Bottom on Mobile) */}
             <div className="md:col-span-3 relative h-64 md:h-80 rounded-lg overflow-hidden">
               {post.featured_image ? (
                 <img
@@ -205,7 +208,6 @@ export default function BlogPostLayout({
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-12">
         <div className="flex flex-col lg:flex-row gap-12">
           <aside
@@ -219,7 +221,6 @@ export default function BlogPostLayout({
             />
           </aside>
 
-          {/* ✅ Post content with Tailwind table design */}
           <article className="lg:w-3/5 order-1 lg:order-2">
             <div className="max-w-none">
               <PostRenderer blocks={blocks} />
@@ -228,7 +229,6 @@ export default function BlogPostLayout({
         </div>
       </div>
 
-      {/* Mobile-only Sidebar */}
       <div className="lg:hidden px-4 mb-8">
         <StickySidebar
           toc={toc}

@@ -103,11 +103,9 @@ export type Database = {
           is_starred: boolean | null
           last_reply_at: string | null
           message: string
-          replied_at: string | null
-          replied_by: string | null
-          reply_note: string | null
           status: string | null
           updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
           business_email: string
@@ -120,11 +118,9 @@ export type Database = {
           is_starred?: boolean | null
           last_reply_at?: string | null
           message: string
-          replied_at?: string | null
-          replied_by?: string | null
-          reply_note?: string | null
           status?: string | null
           updated_at?: string | null
+          updated_by?: string | null
         }
         Update: {
           business_email?: string
@@ -137,16 +133,14 @@ export type Database = {
           is_starred?: boolean | null
           last_reply_at?: string | null
           message?: string
-          replied_at?: string | null
-          replied_by?: string | null
-          reply_note?: string | null
           status?: string | null
           updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "contacts_replied_by_fkey"
-            columns: ["replied_by"]
+            foreignKeyName: "contacts_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -428,11 +422,8 @@ export type Database = {
           id: string
           last_autosaved_at: string | null
           metadata: Json | null
-          newsletter_preview_text: string | null
           newsletter_sent_at: string | null
-          newsletter_subject: string | null
           published_at: string | null
-          send_to_newsletter: boolean | null
           seo_meta_description: string | null
           seo_meta_title: string | null
           seo_og_image: string | null
@@ -441,6 +432,7 @@ export type Database = {
           status: string | null
           title: string
           updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
           author_id?: string | null
@@ -462,11 +454,8 @@ export type Database = {
           id?: string
           last_autosaved_at?: string | null
           metadata?: Json | null
-          newsletter_preview_text?: string | null
           newsletter_sent_at?: string | null
-          newsletter_subject?: string | null
           published_at?: string | null
-          send_to_newsletter?: boolean | null
           seo_meta_description?: string | null
           seo_meta_title?: string | null
           seo_og_image?: string | null
@@ -475,6 +464,7 @@ export type Database = {
           status?: string | null
           title: string
           updated_at?: string | null
+          updated_by?: string | null
         }
         Update: {
           author_id?: string | null
@@ -496,11 +486,8 @@ export type Database = {
           id?: string
           last_autosaved_at?: string | null
           metadata?: Json | null
-          newsletter_preview_text?: string | null
           newsletter_sent_at?: string | null
-          newsletter_subject?: string | null
           published_at?: string | null
-          send_to_newsletter?: boolean | null
           seo_meta_description?: string | null
           seo_meta_title?: string | null
           seo_og_image?: string | null
@@ -509,11 +496,19 @@ export type Database = {
           status?: string | null
           title?: string
           updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "posts_author_id_fkey"
             columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -555,6 +550,38 @@ export type Database = {
           {
             foreignKeyName: "profiles_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string | null
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_settings_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

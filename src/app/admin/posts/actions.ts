@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/types/supabase";
-import { nanoid } from "nanoid"; // --- MODIFICATION: Imported nanoid ---
+import { nanoid } from "nanoid";
 
 async function createClient() {
   const cookieStore = await cookies();
@@ -20,9 +20,6 @@ async function createClient() {
   );
 }
 
-// --- MODIFICATION: Removed the old server-side generateSlug function ---
-// The slug is now generated and managed on the client in step-2-seo.tsx
-
 export async function createPost(category: "blog" | "development") {
   const supabase = await createClient();
 
@@ -34,9 +31,8 @@ export async function createPost(category: "blog" | "development") {
     return { success: false, message: "Not authenticated" };
   }
 
-  // --- MODIFICATION: Switched from Date.now() to nanoid ---
   const defaultTitle = "Untitled Post";
-  const newShortId = nanoid(8); // Generates a unique 8-character ID (e.g., 'k4fT9aP')
+  const newShortId = nanoid(8);
   const initialSlug = `untitled-post-${newShortId}`;
 
   const { data, error } = await supabase
@@ -44,10 +40,10 @@ export async function createPost(category: "blog" | "development") {
     .insert({
       title: defaultTitle,
       slug: initialSlug,
-      short_id: newShortId, // Save the new alphanumeric ID to the database
+      short_id: newShortId,
       category: category,
       author_id: user.id,
-      status: "draft",
+      status: "draft", // The status is 'draft'
     })
     .select("id")
     .single();
@@ -57,12 +53,27 @@ export async function createPost(category: "blog" | "development") {
     return { success: false, message: "Failed to create post." };
   }
 
+  // --- (FIXED) ADD AUDIT LOG ---
+  await supabase.from("admin_audit_log").insert({
+    admin_id: user.id,
+    action: "post.create",
+    details: {
+      // This message is now more precise, as you suggested
+      message: `Created new draft ${category} post: ${defaultTitle}`,
+      post_id: data.id,
+      category: category,
+      status: "draft",
+    },
+  });
+  // --- END LOG ---
+
   revalidatePath("/admin/blog");
   return { success: true, postId: data.id };
 }
 
 export async function getAllPosts() {
   const supabase = await createClient();
+  
   const { data, error } = await supabase
     .from("posts")
     .select(
@@ -77,7 +88,7 @@ export async function getAllPosts() {
       newsletter_sent_at, 
       excerpt,                 
       featured_image,          
-      author:profiles (
+      author:profiles!posts_author_id_fkey (
         full_name,
         email
       )
@@ -96,12 +107,34 @@ export async function getAllPosts() {
 export async function deletePost(postId: string) {
   const supabase = await createClient();
 
+  // Get post title *before* deleting for the log
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: postToLog } = await supabase
+    .from("posts")
+    .select("title")
+    .eq("id", postId)
+    .single();
+
   const { error } = await supabase.from("posts").delete().eq("id", postId);
 
   if (error) {
     console.error("Error deleting post:", error);
     return { success: false, message: "Failed to delete post." };
   }
+
+  // --- (FIXED) ADD AUDIT LOG ---
+  if (user) {
+    await supabase.from("admin_audit_log").insert({
+      admin_id: user.id,
+      action: "post.delete",
+      details: {
+        message: `Deleted post: ${postToLog?.title || postId}`,
+        post_id: postId,
+        deleted_title: postToLog?.title,
+      },
+    });
+  }
+  // --- END LOG ---
 
   revalidatePath("/admin/blog");
   revalidatePath(`/admin/editor/${postId}`);
@@ -122,7 +155,6 @@ export async function getPostById(postId: string) {
     return { success: false, message: "Post not found.", post: null, blocks: [] };
   }
 
-  // If the post has unpublished changes, load the draft content for the editor
   if (post.has_unpublished_changes) {
     const draftPost = {
       ...post,
@@ -133,9 +165,9 @@ export async function getPostById(postId: string) {
       seo_meta_title: post.draft_seo_meta_title || post.seo_meta_title,
       seo_meta_description: post.draft_seo_meta_description || post.seo_meta_description,
       seo_og_image: post.draft_seo_og_image || post.seo_og_image,
+      updated_by: post.updated_by,
     };
     
-    // Use draft_blocks if they exist and are valid JSON
     let blocks: any[] = [];
     if (Array.isArray(post.draft_blocks)) {
       blocks = post.draft_blocks;
@@ -144,7 +176,6 @@ export async function getPostById(postId: string) {
     return { success: true, post: draftPost, blocks: blocks || [] };
   }
 
-  // If no unpublished changes, load the LIVE blocks
   const { data: blocks, error: blocksError } = await supabase
     .from("post_blocks")
     .select("*")
@@ -163,9 +194,11 @@ export async function updatePostCategory(
   category: "blog" | "development"
 ) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { error } = await supabase
     .from("posts")
-    .update({ category })
+    .update({ category: category, updated_by: user?.id })
     .eq("id", postId);
 
   if (error) {
@@ -180,9 +213,11 @@ export async function updatePostDetails(
   details: Partial<Database["public"]["Tables"]["posts"]["Row"]>
 ) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { error } = await supabase
     .from("posts")
-    .update(details)
+    .update({ ...details, updated_by: user?.id })
     .eq("id", postId);
 
   if (error) {
@@ -192,60 +227,13 @@ export async function updatePostDetails(
   return { success: true, message: "Details saved successfully." };
 }
 
-// export async function updatePostContent(
-//   postId: string,
-//   postDetails: Partial<Database["public"]["Tables"]["posts"]["Row"]>,
-//   blocks: Omit<
-//     Database["public"]["Tables"]["post_blocks"]["Row"],
-//     "id" | "created_at" | "updated_at"
-//   >[]
-// ) {
-//   const supabase = await createClient();
-
-//   // 1. Update the post details (title, excerpt, etc.)
-//   const { error: postUpdateError } = await supabase
-//     .from("posts")
-//     .update(postDetails)
-//     .eq("id", postId);
-
-//   if (postUpdateError) {
-//     console.error("Error updating post content:", postUpdateError);
-//     return { success: false, message: postUpdateError.message };
-//   }
-
-//   // 2. Delete all existing blocks for this post
-//   const { error: deleteError } = await supabase
-//     .from("post_blocks")
-//     .delete()
-//     .eq("post_id", postId);
-
-//   if (deleteError) {
-//     console.error("Error deleting old blocks:", deleteError);
-//     return { success: false, message: deleteError.message };
-//   }
-
-//   // 3. Insert the new blocks
-//   if (blocks.length > 0) {
-//     const { error: insertError } = await supabase
-//       .from("post_blocks")
-//       .insert(blocks);
-
-//     if (insertError) {
-//       console.error("Error inserting new blocks:", insertError);
-//       return { success: false, message: insertError.message };
-//     }
-//   }
-
-//   revalidatePath(`/admin/editor/${postId}`);
-//   return { success: true, message: "Content saved successfully." };
-// }
-
 export async function autoSaveDraft(
   postId: string,
   postDetails: Partial<Database["public"]["Tables"]["posts"]["Row"]>,
-  blocks: any[] // The blocks array from the editor state
+  blocks: any[]
 ) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   
   const { error: postUpdateError } = await supabase
     .from("posts")
@@ -257,9 +245,10 @@ export async function autoSaveDraft(
       draft_seo_meta_title: postDetails.seo_meta_title,
       draft_seo_meta_description: postDetails.seo_meta_description,
       draft_seo_og_image: postDetails.seo_og_image,
-      draft_blocks: blocks, // Save the entire block array as JSON
+      draft_blocks: blocks,
       has_unpublished_changes: true,
       last_autosaved_at: new Date().toISOString(),
+      updated_by: user?.id,
     })
     .eq("id", postId);
 
@@ -268,47 +257,40 @@ export async function autoSaveDraft(
     return { success: false, message: postUpdateError.message };
   }
 
-  // No revalidation needed, as this doesn't affect the public site
   return { success: true, message: "Draft saved." };
 }
 
-/**
- * MODIFIED: This function now "goes live".
- * It copies all content from the 'draft_' columns to the live columns
- * and rebuilds the live 'post_blocks' table.
- */
 export async function publishPost(postId: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // 1. Get the latest draft data from the 'posts' table
-  const { data: draftData, error: fetchError } = await supabase
+  // --- (FIXED) ADD LOGIC TO CHECK IF POST IS ALREADY PUBLISHED ---
+  const { data: existingPost, error: existingError } = await supabase
     .from("posts")
-    .select(
-      // ----------------- FIX #1: ADD 'draft_slug' TO THIS LIST -----------------
-      "draft_title, draft_slug, draft_excerpt, draft_featured_image, draft_featured_image_alt, draft_seo_meta_title, draft_seo_meta_description, draft_seo_og_image, draft_blocks"
-    )
+    .select("published_at, draft_title, draft_slug, draft_excerpt, draft_featured_image, draft_featured_image_alt, draft_seo_meta_title, draft_seo_meta_description, draft_seo_og_image, draft_blocks")
     .eq("id", postId)
     .single();
 
-  if (fetchError || !draftData) {
-    console.error("Error fetching draft data to publish:", fetchError);
+  if (existingError || !existingPost) {
+    console.error("Error fetching draft data to publish:", existingError);
     return { success: false, message: "Could not find draft data to publish." };
   }
+  
+  const isRepublish = !!existingPost.published_at;
+  const draftData = existingPost; // Rename for clarity
+  // --- END FIX ---
 
-  // 2. Delete all existing *live* blocks
-  // ... (this part is correct, no changes needed) ...
-  const { error: deleteError } = await supabase
+  const { error: deleteBlocksError } = await supabase
     .from("post_blocks")
     .delete()
     .eq("post_id", postId);
 
-  if (deleteError) {
-    console.error("Error deleting old blocks:", deleteError);
-    return { success: false, message: deleteError.message };
+  if (deleteBlocksError) {
+    console.error("Error deleting old blocks:", deleteBlocksError);
+    return { success: false, message: deleteBlocksError.message };
   }
 
-  // 3. Insert the new blocks from 'draft_blocks' into 'post_blocks'
-  // ... (this part is correct, no changes needed) ...
+
   if (draftData.draft_blocks && Array.isArray(draftData.draft_blocks)) {
     const blocksToInsert = (draftData.draft_blocks as any[]).map(
       (block, index) => ({
@@ -331,19 +313,17 @@ export async function publishPost(postId: string) {
     }
   }
 
-  // 4. Update the main post record to "go live"
+  const finalTitle = draftData.draft_title || "Untitled Post";
+  const finalSlug = draftData.draft_slug || `post-${nanoid(8)}`;
+
   const { error } = await supabase
     .from("posts")
     .update({
       status: "published",
       published_at: new Date().toISOString(),
       
-      // ----------------- FIX #2: ADD FALLBACKS FOR NULL VALUES -----------------
-      // We must provide a default value in case the draft title/slug is null
-      title: draftData.draft_title || "Untitled Post",
-      slug: draftData.draft_slug || `post-${nanoid(8)}`,
-      // -------------------------------------------------------------------------
-
+      title: finalTitle,
+      slug: finalSlug,
       excerpt: draftData.draft_excerpt,
       featured_image: draftData.draft_featured_image,
       featured_image_alt: draftData.draft_featured_image_alt,
@@ -351,7 +331,6 @@ export async function publishPost(postId: string) {
       seo_meta_description: draftData.draft_seo_meta_description,
       seo_og_image: draftData.draft_seo_og_image,
       
-      // Clear draft fields
       has_unpublished_changes: false,
       draft_title: null,
       draft_slug: null,
@@ -362,6 +341,7 @@ export async function publishPost(postId: string) {
       draft_seo_meta_description: null,
       draft_seo_og_image: null,
       draft_blocks: null,
+      updated_by: user?.id,
     })
     .eq("id", postId);
 
@@ -370,7 +350,24 @@ export async function publishPost(postId: string) {
     return { success: false, message: error.message };
   }
 
-  // Revalidate all public paths
+  // --- (FIXED) ADD AUDIT LOG ---
+  if (user) {
+    // Create the descriptive message
+    const message = isRepublish
+      ? `Updated published post: ${finalTitle}`
+      : `Published new post: ${finalTitle}`;
+
+    await supabase.from("admin_audit_log").insert({
+      admin_id: user.id,
+      action: isRepublish ? "post.update" : "post.publish", // Use a different action
+      details: {
+        message: message,
+        post_id: postId,
+      },
+    });
+  }
+  // --- END LOG ---
+
   revalidatePath("/admin/blog");
   revalidatePath(`/admin/editor/${postId}`);
   revalidatePath("/resources/blog-articles");

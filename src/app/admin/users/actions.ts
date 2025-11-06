@@ -37,7 +37,7 @@ async function checkSuperAdminAccess() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { authorized: false, message: "Not authenticated" };
+    return { authorized: false, message: "Not authenticated", userId: null };
   }
 
   const { data: profile } = await supabase
@@ -50,6 +50,7 @@ async function checkSuperAdminAccess() {
     return {
       authorized: false,
       message: "Access denied. Super admin role required.",
+      userId: user.id,
     };
   }
 
@@ -60,7 +61,7 @@ async function checkSuperAdminAccess() {
 export async function createUser(formData: FormData) {
   // Check authorization first
   const authCheck = await checkSuperAdminAccess();
-  if (!authCheck.authorized) {
+  if (!authCheck.authorized || !authCheck.userId) {
     return { success: false, message: authCheck.message };
   }
 
@@ -87,14 +88,14 @@ export async function createUser(formData: FormData) {
     return { success: false, message: authError.message };
   }
 
-  // The trigger already created a profile, now we update it with role, status, and created_by
+  // The trigger already created a profile, now we update it
   if (authData.user) {
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
         role: role,
         status: status,
-        created_by: authCheck.userId, // ← Track who created the user
+        created_by: authCheck.userId,
       })
       .eq("id", authData.user.id);
 
@@ -105,9 +106,23 @@ export async function createUser(formData: FormData) {
     // Ban user immediately if status is not active
     if (status !== "active") {
       await supabase.auth.admin.updateUserById(authData.user.id, {
-        ban_duration: "876000h", // ~100 years
+        ban_duration: "876000h",
       });
     }
+
+    // --- (FIXED) ADD AUDIT LOG ---
+    await supabase.from("admin_audit_log").insert({
+      admin_id: authCheck.userId,
+      action: "user.create",
+      target_user_id: authData.user.id,
+      details: {
+        message: `Created user ${email} with role ${role}`,
+        email: email,
+        role: role,
+        status: status,
+      },
+    });
+    // --- END LOG ---
   }
 
   revalidatePath("/admin/users");
@@ -118,17 +133,36 @@ export async function createUser(formData: FormData) {
 export async function deleteUser(userId: string) {
   // Check authorization first
   const authCheck = await checkSuperAdminAccess();
-  if (!authCheck.authorized) {
+  if (!authCheck.authorized || !authCheck.userId) {
     return { success: false, message: authCheck.message };
   }
 
   const supabase = await createAdminClient();
+
+  // Get user email *before* deleting, for the log message
+  const { data: userToLog } = await supabase
+    .from("profiles")
+    .select("email")
+    .eq("id", userId)
+    .single();
 
   const { error } = await supabase.auth.admin.deleteUser(userId);
 
   if (error) {
     return { success: false, message: error.message };
   }
+
+  // --- (FIXED) ADD AUDIT LOG ---
+  await supabase.from("admin_audit_log").insert({
+    admin_id: authCheck.userId,
+    action: "user.delete",
+    target_user_id: userId,
+    details: {
+      message: `Deleted user ${userToLog?.email || userId}`,
+      deleted_email: userToLog?.email || "unknown",
+    },
+  });
+  // --- END LOG ---
 
   revalidatePath("/admin/users");
   return { success: true, message: "User deleted successfully!" };
@@ -138,7 +172,7 @@ export async function deleteUser(userId: string) {
 export async function updateUser(formData: FormData) {
   // Check authorization first
   const authCheck = await checkSuperAdminAccess();
-  if (!authCheck.authorized) {
+  if (!authCheck.authorized || !authCheck.userId) {
     return { success: false, message: authCheck.message };
   }
 
@@ -150,14 +184,15 @@ export async function updateUser(formData: FormData) {
   const role = formData.get("role") as string;
   const status = formData.get("status") as string;
 
-  // Safety Check: Prevent demoting the last super_admin
-  const { data: userToUpdate } = await supabase
+  // Get current data for logging changes
+  const { data: oldData } = await supabase
     .from("profiles")
-    .select("role, status")
+    .select("role, status, email, full_name")
     .eq("id", id)
     .single();
 
-  if (userToUpdate?.role === "super_admin") {
+  // Safety Check: Prevent demoting the last super_admin
+  if (oldData?.role === "super_admin") {
     const { count } = await supabase
       .from("profiles")
       .select("*", { count: "exact" })
@@ -190,23 +225,17 @@ export async function updateUser(formData: FormData) {
     }
   }
 
-  // CRITICAL: Handle ban/unban based on status
+  // Handle ban/unban based on status
   if (status === "inactive" || status === "suspended") {
-    // Ban the user in auth system
     const { error: banError } = await supabase.auth.admin.updateUserById(id, {
-      ban_duration: "876000h", // ~100 years
+      ban_duration: "876000h",
     });
-    if (banError) {
-      console.error("Failed to ban user:", banError);
-    }
+    if (banError) console.error("Failed to ban user:", banError);
   } else if (status === "active") {
-    // Unban the user in auth system
     const { error: unbanError } = await supabase.auth.admin.updateUserById(id, {
       ban_duration: "none",
     });
-    if (unbanError) {
-      console.error("Failed to unban user:", unbanError);
-    }
+    if (unbanError) console.error("Failed to unban user:", unbanError);
   }
 
   // Update the public.profiles table
@@ -219,6 +248,39 @@ export async function updateUser(formData: FormData) {
     return { success: false, message: profileError.message };
   }
 
+  // --- (FIXED) ADD AUDIT LOG ---
+  const changes: string[] = [];
+  if (oldData?.full_name !== fullName) {
+    changes.push(`name to '${fullName}'`);
+  }
+  if (oldData?.email !== email) {
+    changes.push(`email to '${email}'`);
+  }
+  if (oldData?.role !== role) {
+    changes.push(`role from '${oldData?.role}' to '${role}'`);
+  }
+  if (oldData?.status !== status) {
+    changes.push(`status from '${oldData?.status}' to '${status}'`);
+  }
+  
+  const message = `Updated user ${email}. Changes: ${changes.join(", ")}`;
+
+  await supabase.from("admin_audit_log").insert({
+    admin_id: authCheck.userId,
+    action: "user.update",
+    target_user_id: id,
+    details: {
+      message: message, // This is the improved message
+      changes: {
+        role: { old: oldData?.role, new: role },
+        status: { old: oldData?.status, new: status },
+        email: { old: oldData?.email, new: email },
+        full_name: { old: oldData?.full_name, new: fullName },
+      },
+    },
+  });
+  // --- END LOG ---
+
   revalidatePath("/admin/users");
   return { success: true, message: "User updated successfully!" };
 }
@@ -227,7 +289,7 @@ export async function updateUser(formData: FormData) {
 export async function resetUserPassword(email: string) {
   // Check authorization first
   const authCheck = await checkSuperAdminAccess();
-  if (!authCheck.authorized) {
+  if (!authCheck.authorized || !authCheck.userId) {
     return { success: false, message: authCheck.message };
   }
 
@@ -241,6 +303,24 @@ export async function resetUserPassword(email: string) {
   if (error) {
     return { success: false, message: error.message };
   }
+
+  // --- (FIXED) ADD AUDIT LOG ---
+  const { data: targetUser } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .single();
+
+  await supabase.from("admin_audit_log").insert({
+    admin_id: authCheck.userId,
+    action: "user.password_reset",
+    target_user_id: targetUser?.id || null,
+    details: {
+      message: `Sent password reset link to ${email}`,
+      email: email,
+    },
+  });
+  // --- END LOG ---
 
   return { success: true, message: "Password reset link sent successfully!" };
 }
