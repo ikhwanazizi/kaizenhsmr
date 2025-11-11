@@ -9,45 +9,45 @@ const supabaseAdmin = createClient(
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
+  const token = searchParams.get("id"); // This 'id' is the unsubscribe_token
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!;
 
-  if (!id) {
+  if (!token) {
     return NextResponse.redirect(
-      `${siteUrl}/newsletter/unsubscribe?status=error&message=Invalid link: ID is missing.`
+      `${siteUrl}/newsletter/unsubscribe?status=error&message=Invalid link: Token is missing.`
     );
   }
 
   try {
-    // STEP 1: First, find the subscriber by their ID.
+    // STEP 1: Find the subscriber by their TOKEN.
     const { data: subscriber, error: findError } = await supabaseAdmin
       .from("newsletter_subscribers")
-      .select("status")
-      .eq("id", id)
+      .select("id, status")
+      .eq("unsubscribe_token", token) // <-- Correct column
       .single();
 
     // If no subscriber is found, the link is invalid.
     if (findError || !subscriber) {
       console.error("Unsubscribe find error:", findError);
+      // ✅ --- IMPROVEMENT: Use a more generic error message ---
       return NextResponse.redirect(
-        `${siteUrl}/newsletter/unsubscribe?status=error&message=This unsubscribe link is invalid.`
+        `${siteUrl}/newsletter/unsubscribe?status=error&message=Invalid or expired link.`
       );
     }
 
-    // STEP 2: Check if they are already unsubscribed. If so, it's a success.
+    // STEP 2: Check if they are already unsubscribed.
     if (subscriber.status === "unsubscribed") {
       return NextResponse.redirect(
         `${siteUrl}/newsletter/unsubscribe?status=success`
       );
     }
 
-    // STEP 3: If they are not unsubscribed, update their status.
+    // STEP 3: Update their status using their PRIMARY KEY (id).
     const { error: updateError } = await supabaseAdmin
       .from("newsletter_subscribers")
       .update({ status: "unsubscribed" })
-      .eq("id", id);
+      .eq("id", subscriber.id); // <-- Use the 'subscriber.id'
 
-    // If the update itself fails, it's an error.
     if (updateError) {
       console.error("Unsubscribe update error:", updateError);
       return NextResponse.redirect(
@@ -55,7 +55,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // If we get here, the update was successful.
     return NextResponse.redirect(
       `${siteUrl}/newsletter/unsubscribe?status=success`
     );

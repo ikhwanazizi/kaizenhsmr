@@ -145,7 +145,7 @@ export async function sendTestNewsletter(postId: string, testEmail: string) {
     const readMoreUrl = `${siteUrl}/${postPath}/${post.slug}`;
     const unsubscribeUrl = `${siteUrl}/newsletter/unsubscribe?token=test-token`;
     const { error } = await resend.emails.send({
-      from: "KaizenHR <onboarding@resend.dev>",
+      from: process.env.RESEND_FROM_EMAIL!,
       to: [testEmail],
       subject: `[TEST] ${post.title}`,
       html: postNewsletterTemplate({
@@ -316,7 +316,6 @@ export async function processNewsletterQueue() {
     }
 
     // 2. --- Find a Campaign to Process ---
-    // Find the oldest scheduled or in-progress campaign
     const { data: campaign, error: campaignError } = await supabaseAdmin
       .from("newsletter_campaigns")
       .select("*")
@@ -359,7 +358,6 @@ export async function processNewsletterQueue() {
     if (batchError) throw new Error("Failed to fetch recipient batch.");
 
     if (!batch || batch.length === 0) {
-      // No more queued recipients for this campaign, mark as completed
       await supabaseAdmin
         .from("newsletter_campaigns")
         .update({
@@ -385,17 +383,27 @@ export async function processNewsletterQueue() {
     const readMoreUrl = `${siteUrl}/${postPath}/${post.slug}`;
 
     const sendPromises = batch.map(async (recipient) => {
-      // Get the unique unsubscribe token for this user
-      const { data: sub } = await supabaseAdmin
+      // ✅ --- FIX: Improved token logic ---
+      const { data: sub, error: subError } = await supabaseAdmin
         .from("newsletter_subscribers")
         .select("unsubscribe_token")
         .eq("id", recipient.subscriber_id)
         .single();
       
-      const unsubscribeUrl = `${siteUrl}/api/newsletter/unsubscribe?id=${sub?.unsubscribe_token || recipient.subscriber_id}`;
+      if (subError || !sub?.unsubscribe_token) {
+        console.error(`CRON: Skipping ${recipient.email}, no unsubscribe token found.`);
+        // Return a structured error so it can be logged as 'failed'
+        return Promise.reject({
+          message: "Unsubscribe token not found",
+          log_id: recipient.id, 
+        });
+      }
+      
+      const unsubscribeUrl = `${siteUrl}/api/newsletter/unsubscribe?id=${sub.unsubscribe_token}`;
+      // ✅ --- END FIX ---
 
       return resend.emails.send({
-        from: "KaizenHR <onboarding@resend.dev>",
+        from: process.env.RESEND_FROM_EMAIL!,
         to: [recipient.email],
         subject: campaign.subject,
         html: postNewsletterTemplate({
@@ -422,7 +430,6 @@ export async function processNewsletterQueue() {
       if (result.status === 'fulfilled' && !result.value.error) {
         // Success
         successfulSends++;
-        // --- ✅ FIX 1: Wrap in an async IIFE to return a true promise ---
         updateLogPromises.push(
           (async () => {
             return supabaseAdmin
@@ -432,14 +439,17 @@ export async function processNewsletterQueue() {
                 sent_at: new Date().toISOString(),
               })
               .eq("id", result.value.log_id)
-              .select(); // .select() is still good practice
+              .select();
           })()
         );
       } else {
         // Failure
         failedSends++;
+         // ✅ --- FIX: Get log_id from our custom rejection ---
         const error = (result as any).reason || (result as any).value?.error;
-        // --- ✅ FIX 2: Wrap in an async IIFE to return a true promise ---
+        const logId = (result as any).reason?.log_id || (result as any).value?.log_id;
+        // ✅ --- END FIX ---
+
         updateLogPromises.push(
           (async () => {
             return supabaseAdmin
@@ -448,8 +458,8 @@ export async function processNewsletterQueue() {
                 status: "failed",
                 error_message: error?.message || "Send failed",
               })
-              .eq("id", (result as any).value?.log_id || (result as any).reason?.log_id)
-              .select(); // .select() is still good practice
+              .eq("id", logId) // <-- Use the correct logId
+              .select();
           })()
         );
       }
@@ -482,7 +492,6 @@ export async function processNewsletterQueue() {
     };
   } catch (error: any) {
     console.error("CRON: Error processing queue:", error.message);
-    // If something fails, try to mark the campaign as 'failed' to avoid retries
     const campaignId = (error as any).campaign_id;
     if (campaignId) {
       await supabaseAdmin

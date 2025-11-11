@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
         const recipientEmail = contact.business_email;
 
         const { error: emailError } = await resend.emails.send({
-          from: "KaizenHR <onboarding@resend.dev>",
+          from: process.env.RESEND_FROM_EMAIL!,
           to: recipientEmail,
           subject: `Re: Your KaizenHR Inquiry`,
           html: replyEmailTemplate(emailData),

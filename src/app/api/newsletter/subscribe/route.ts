@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     // 4. Send verification email using Resend
     const { data, error } = await resend.emails.send({
-      from: "Kaizen Newsletter <onboarding@resend.dev>",
+      from: process.env.RESEND_FROM_EMAIL!,
       to: email,
       subject: "Verify Your Newsletter Subscription",
       html: emailHtml,

@@ -17,8 +17,11 @@ export async function GET(req: NextRequest) {
       console.error("Cron Job Error:", result.message);
       return NextResponse.json({ error: result.message }, { status: 500 });
     }
-    // Return the successful result
-    return NextResponse.json({ success: true, ...result }, { status: 200 });
+
+    // --- ✅ FIX: 'result' already contains the 'success' property ---
+    return NextResponse.json(result, { status: 200 });
+    // --- End of Fix ---
+
   } catch (error: any) {
     console.error("Cron API Error:", error.message);
     return NextResponse.json(

@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     // Send confirmation email to user
     try {
       const { error: userEmailError } = await resend.emails.send({
-        from: "KaizenHR <onboarding@resend.dev>",
+        from: process.env.RESEND_FROM_EMAIL!,
         to: formData.email,
         subject: "Thank You for Contacting KaizenHR",
         html: userConfirmationTemplate(contactData),
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     // Send notification to super admin
     try {
       const { error: adminEmailError } = await resend.emails.send({
-        from: "KaizenHR Notifications <onboarding@resend.dev>",
+        from: process.env.RESEND_FROM_EMAIL!,
         to: "ikhwan0059@gmail.com",
         subject: `🔔 New Contact Form Submission from ${formData.company}`,
         html: adminNotificationTemplate(contactData),
