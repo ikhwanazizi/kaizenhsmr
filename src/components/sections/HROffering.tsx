@@ -24,7 +24,7 @@ const HROffering = () => {
     <div className="py-20 bg-gray-50">
       <Container>
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-gray-900 mb-6">
+          <h2 className="text-4xl font-bold text-gray-900 mb-2">
             Our Comprehensive HR Offering
           </h2>
           <p className="text-xl text-gray-600">
@@ -33,16 +33,10 @@ const HROffering = () => {
         </div>
 
         {/* Core Modules */}
-        <CoreModules />
+        {/* <CoreModules /> */}
 
         {/* Detailed Features Grid */}
         <DetailedFeatures />
-
-        <div className="text-center mt-12">
-          <button className="bg-yellow-400 hover:bg-yellow-500 text-black px-12 py-4 rounded-full font-medium transition-all transform hover:scale-105 shadow-lg text-lg">
-            Explore All Features
-          </button>
-        </div>
       </Container>
     </div>
   );

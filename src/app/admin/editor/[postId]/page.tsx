@@ -4,11 +4,11 @@ import EditorClient from "./editor-client";
 import { getPostById } from "../../posts/actions";
 
 export default async function EditorPage({
-  params: paramsPromise, // Rename for clarity (optional but helpful)
+  params,
 }: {
   params: { postId: string };
 }) {
-  const params = await paramsPromise; // Await here
+  // No promise here, params is the object directly
   const { postId } = params;
 
   // If it's a new post, we pass null and the client will handle it.

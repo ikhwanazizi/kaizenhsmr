@@ -78,19 +78,13 @@ const Trial = () => {
           </div>
 
           <div className="relative">
-            <div className="absolute -inset-4 bg-gradient-to-r from-blue-400 to-purple-600 rounded-2xl opacity-20 blur"></div>
+            <div className="absolute -inset-4 rounded-2xl opacity-20 blur"></div>
             <img
-              src="/api/placeholder/500/400"
+              src="https://www.kaizenhr.my/wp-content/uploads/2015/01/business.webp"
               alt="Trial Experience"
-              className="rounded-2xl shadow-2xl relative z-10 w-full"
+              className="mt-20 ml-30 rounded-2xl relative z-10 w-lg"
             />
           </div>
-        </div>
-
-        <div className="text-center mt-12">
-          <button className="bg-gradient-to-r from-[#008080] to-[#006666] hover:from-[#006666] hover:to-[#004d4d] text-white px-12 py-4 rounded-full font-medium transition-all transform hover:scale-105 shadow-lg text-lg">
-            Start Your Free 3-Month Trial
-          </button>
         </div>
       </Container>
     </div>

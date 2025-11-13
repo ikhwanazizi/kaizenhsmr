@@ -61,11 +61,6 @@ const PersonnelHub = () => {
           <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
             Personnel Hub
           </h1>
-          <p className="max-w-3xl mx-auto text-lg leading-relaxed">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent
-            vulputate, libero et sollicitudin porta, lectus nisi commodo turpis,
-            nec tincidunt nulla enim vitae justo.
-          </p>
         </Container>
       </div>
 

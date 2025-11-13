@@ -26,7 +26,9 @@ const WhyChooseKaizen = () => {
             <div className="bg-gradient-to-br from-green-400 to-green-600 rounded-full p-8 w-32 h-32 mx-auto mb-8 flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all transform group-hover:scale-110">
               <Globe size={48} className="text-white" />
             </div>
-            <h3 className="text-2xl font-semibold mb-4">Global Workforce</h3>
+            <h3 className="text-2xl font-semibold mb-4">
+              Tier 1 Enterprise App
+            </h3>
             <p className="text-gray-600 leading-relaxed">
               Total HR Solutions for your Global Workforce management needs
               across different regions

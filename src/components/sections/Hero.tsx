@@ -14,7 +14,7 @@ const Hero = () => {
               Malaysia's Tier 1 Enterprise HR Solution
             </div>
             <h1 className="text-5xl lg:text-6xl font-bold leading-tight">
-              KaizenHR
+              Kaizen HRMS
             </h1>
             <h2 className="text-2xl lg:text-3xl font-light opacity-90 leading-relaxed">
               Elevate your HR. Backed by 28 Years of track record and best
@@ -30,18 +30,19 @@ const Hero = () => {
               <button className="bg-yellow-400 hover:bg-yellow-500 text-black px-8 py-4 rounded-full font-medium transition-all transform hover:scale-105 shadow-lg">
                 Start Free Trial
               </button>
-              <button className="border-2 border-white hover:bg-white hover:text-[#008080] text-white px-8 py-4 rounded-full font-medium transition-all">
-                Learn More
-              </button>
             </div>
           </div>
           <div className="relative">
-            <div className="absolute -inset-4 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-2xl opacity-20 blur"></div>
-            <img
-              src="/api/placeholder/600/400"
-              alt="KaizenHR Dashboard"
-              className="rounded-2xl shadow-2xl relative z-10 transform hover:scale-105 transition-transform duration-300"
-            />
+            <div className="absolute -inset-4  rounded-2xl opacity-20 blur"></div>
+            <div className="relative z-10 rounded-2xl shadow-2xl overflow-hidden transform hover:scale-105 transition-transform duration-300">
+              <iframe
+                className="w-full aspect-video"
+                src="https://www.youtube.com/embed/p4-USNtPYrY"
+                title="KaizenHR Dashboard"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
           </div>
         </div>
       </Container>
