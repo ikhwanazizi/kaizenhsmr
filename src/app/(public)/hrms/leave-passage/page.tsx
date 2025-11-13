@@ -10,6 +10,13 @@ import RelatedModulesSection from "@/components/sections/RelatedModulesSection";
 // Data for the core features sections for Leave Passage
 const coreFeatures = [
   {
+    icon: "⚖️",
+    title: "Rewarding Employees with Travel Benefits",
+    description:
+      "Beyond standard leave entitlements, our Leave Passage module helps organizations recognize and reward employees with travel benefits that foster loyalty and satisfaction.",
+    bgColor: "bg-white",
+  },
+  {
     icon: "✈️",
     title: "Exclusive Employee Benefit",
     description:
@@ -49,16 +56,11 @@ const LeavePassage = () => {
       <Navbar />
 
       {/* Hero Section */}
-      <div className="pt-16 bg-white">
+      <div className="pt-16 bg-slate-100">
         <Container className="py-20 text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
             Leave Passage
           </h1>
-          <p className="max-w-3xl mx-auto text-lg text-gray-600 leading-relaxed">
-            Rewarding Employees with Travel Benefits. Our Leave Passage module
-            helps organizations recognize and reward employees, fostering
-            loyalty and satisfaction.
-          </p>
         </Container>
       </div>
 
@@ -77,6 +79,15 @@ const LeavePassage = () => {
             </Container>
           </div>
         ))}
+        <Container className="py-20 text-center bg-white">
+          <div>
+            <p className="max-w-3xl mx-auto text-lg text-gray-600 leading-relaxed text-">
+              With Payroll Management, you can ensure timely, accurate, and
+              compliant salary disbursement, strengthen employee trust while
+              reducing administrative burden.
+            </p>
+          </div>
+        </Container>
       </div>
 
       {/* Related Modules Section */}
