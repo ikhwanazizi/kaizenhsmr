@@ -11,31 +11,38 @@ import RelatedModulesSection from "@/components/sections/RelatedModulesSection";
 const coreFeatures = [
   {
     icon: "⚙️",
+    title: "Accurate, Compliant, and On Time",
+    description:
+      "Payroll is one of the most critical HR functions, and our Payroll Management module ensures it is handled with precision, compliance, and efficiency every single time.",
+    bgColor: "bg-slate-100",
+  },
+  {
+    icon: "⚙️",
     title: "Streamlined Payroll Workflows",
     description:
       "Designed to simplify complex calculations, the module automates salary processing, tax deductions, statutory contributions, and allowances. By minimizing manual effort, HR teams can focus on accuracy rather than repetitive tasks.",
-    bgColor: "bg-slate-50",
+    bgColor: "bg-white",
   },
   {
     icon: "🔒",
     title: "Compliance Made Easy",
     description:
       "Payroll Management is built to meet Malaysia’s statutory requirements, including EPF, SOCSO, EIS, and PCB. Automatic updates to statutory tables ensure your organization remains compliant without extra effort.",
-    bgColor: "bg-white",
+    bgColor: "bg-slate-100",
   },
   {
     icon: "🔄",
     title: "Flexibility for Every Organization",
     description:
       "Whether you are handling multiple pay groups, variable allowances, bonuses, or overtime, the system adapts seamlessly to different payroll policies and structures. It supports a wide range of industries and workforce types.",
-    bgColor: "bg-slate-50",
+    bgColor: "bg-white",
   },
   {
     icon: "🔗",
     title: "Integrated with the HR Ecosystem",
     description:
       "Because Payroll is fully integrated with Personnel Hub, Time & Attendance, and Leave Management, it eliminates data silos and ensures that all calculations reflect real-time updates from across the HR system.",
-    bgColor: "bg-white",
+    bgColor: "bg-slate-100",
   },
 ];
 
@@ -54,11 +61,6 @@ const PayrollManagement = () => {
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
             Payroll Management
           </h1>
-          <p className="max-w-3xl mx-auto text-lg text-gray-600 leading-relaxed">
-            Accurate, Compliant, and On Time. Our Payroll Management module
-            ensures this critical HR function is handled with precision and
-            efficiency every single time.
-          </p>
         </Container>
       </div>
 
@@ -77,6 +79,15 @@ const PayrollManagement = () => {
             </Container>
           </div>
         ))}
+        <Container className="py-20 text-center bg-white">
+          <div>
+            <p className="max-w-3xl mx-auto text-lg text-gray-600 leading-relaxed ">
+              With Payroll Management, you can ensure timely, accurate, and
+              compliant salary disbursement, strengthen employee trust while
+              reducing administrative burden.
+            </p>
+          </div>
+        </Container>
       </div>
 
       {/* Related Modules Section */}

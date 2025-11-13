@@ -21,28 +21,28 @@ const coreFeatures = [
     icon: "📂",
     title: "Centralized Employee Records",
     description:
-      "Ensures every employee detail—from personal information and employment history to job assignments and benefits—is captured, organized, and always up to date. No more scattered files or siloed systems.",
+      "Personnel Hub ensures that every employee detail—from personal information and employment history to job assignments and benefits—is captured, organized, and always up to date. No more scattered files or siloed systems; everything lives in one reliable source of truth.",
     bgColor: "bg-white",
   },
   {
     icon: "💡",
     title: "Smarter Data Management",
     description:
-      "Quickly access records, generate reports, and comply with statutory requirements. This intuitive module reduces duplication, minimizes errors, and ensures data consistency across the entire HR suite.",
+      "With its intuitive structure, the module enables HR teams to quickly access records, generate reports, and comply with statutory requirements. It reduces duplication, minimizes errors, and ensures consistency across payroll, leave, claims, and performance management.",
     bgColor: "bg-slate-50",
   },
   {
     icon: "🚀",
     title: "Supporting Growth and Scalability",
     description:
-      "As your organization evolves, Personnel Hub scales with you. New employees, roles, and departments can be seamlessly added, keeping the system perfectly aligned with your business structure.",
+      "As your organization evolves, Personnel Hub scales with you. New employees, roles, and departments can be seamlessly added, keeping the system aligned with your business structure.",
     bgColor: "bg-white",
   },
   {
     icon: "🔗",
     title: "Foundation for Integration",
     description:
-      "As the backbone of the HR ecosystem, it enables smooth cross-module integration with Payroll, Leave, and Performance, ensuring reliable data for critical decision-making.",
+      "Because it underpins every other module—Payroll, Leave, Training, Performance—the Personnel Hub is not just a database, but the backbone of the entire HR ecosystem, enabling smooth cross-module integration and reliable decision-making.",
     bgColor: "bg-slate-50",
   },
 ];
@@ -76,6 +76,15 @@ const PersonnelHub = () => {
               <p className="max-w-3xl mx-auto text-lg text-gray-600 leading-relaxed">
                 {feature.description}
               </p>
+            </Container>
+            <Container className="py-20 text-center bg-white">
+              <div>
+                <p className="max-w-3xl mx-auto text-lg text-gray-600 leading-relaxed ">
+                  With Personnel Hub, your HR team gains a trusted, centralized,
+                  and future-ready foundation to manage your most valuable
+                  asset, your people.
+                </p>
+              </div>
             </Container>
           </div>
         ))}
