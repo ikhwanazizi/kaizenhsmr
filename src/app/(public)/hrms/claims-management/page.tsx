@@ -10,6 +10,13 @@ import RelatedModulesSection from "@/components/sections/RelatedModulesSection";
 // Data for the core features sections
 const coreFeatures = [
   {
+    icon: "🛡️",
+    title: "Simplifying Expense Reimbursements",
+    description:
+      "Managing employee claims can often be time-consuming and prone to errors. Our Claims Management module streamlines the entire process, ensuring faster reimbursements with clear accountability.",
+    bgColor: "bg-white",
+  },
+  {
     icon: "📂",
     title: "Centralized Claim Processing",
     description:
@@ -49,16 +56,11 @@ const ClaimsManagement = () => {
       <Navbar />
 
       {/* Hero Section */}
-      <div className="pt-16 bg-white">
+      <div className="pt-16 bg-slate-100">
         <Container className="py-20 text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
-            Leave Passage
+            Claims Management
           </h1>
-          <p className="max-w-3xl mx-auto text-lg text-gray-600 leading-relaxed">
-            Rewarding Employees with Travel Benefits. Our Leave Passage module
-            helps organizations recognize and reward employees, fostering
-            loyalty and satisfaction.
-          </p>
         </Container>
       </div>
 
@@ -78,6 +80,16 @@ const ClaimsManagement = () => {
           </div>
         ))}
       </div>
+      <Container className="py-20 text-center bg-slate-100">
+        <div>
+          <p className="max-w-3xl mx-auto text-lg text-gray-600 leading-relaxed ">
+            With Claims Management, organizations can accelerate expense
+            reimbursements, reduce administrative work, and strengthen policy
+            compliance, while employees benefit from faster, hassle-free claim
+            settlements.
+          </p>
+        </div>
+      </Container>
 
       {/* Related Modules Section */}
       <RelatedModulesSection modules={relatedModules} />
