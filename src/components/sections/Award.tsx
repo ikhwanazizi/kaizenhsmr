@@ -45,15 +45,6 @@ const Award = () => {
               />
             </div>
           </div>
-
-          {/* Award Trophy Image */}
-          <div className="mt-8">
-            <img
-              src="/api/placeholder/300/150"
-              alt="MSC-APICTA Award Trophy"
-              className="mx-auto rounded-lg shadow-lg"
-            />
-          </div>
         </div>
       </Container>
     </section>

@@ -1,9 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: 'standalone',
 
-  // ADD THIS BLOCK
   eslint: {
     // This will allow your build to complete even if there are errors.
     ignoreDuringBuilds: true,

@@ -27,14 +27,16 @@ const Hero = () => {
               Malaysia's most complete and comprehensive HR system.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <button className="bg-yellow-400 hover:bg-yellow-500 text-black px-8 py-4 rounded-full font-medium transition-all transform hover:scale-105 shadow-lg">
-                Start Free Trial
-              </button>
+              <a href="/company/contact-us">
+                <button className="bg-yellow-400 hover:bg-yellow-500 text-black px-8 py-4 rounded-full font-medium transition-all transform hover:scale-105 shadow-lg">
+                  Start Free Trial
+                </button>
+              </a>
             </div>
           </div>
           <div className="relative">
             <div className="absolute -inset-4  rounded-2xl opacity-20 blur"></div>
-            <div className="relative z-10 rounded-2xl shadow-2xl overflow-hidden transform hover:scale-105 transition-transform duration-300">
+            <div className="relative z-10 rounded-2xl shadow-2xl overflow-hidden transform">
               <iframe
                 className="w-full aspect-video"
                 src="https://www.youtube.com/embed/p4-USNtPYrY"
