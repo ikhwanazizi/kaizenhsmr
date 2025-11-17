@@ -1,34 +1,14 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "@/app/styles/globals.css";
+// src/app/(public)/layout.tsx
+import React from "react";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+// No metadata or fonts needed here, the root layout at src/app/layout.tsx handles it.
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata: Metadata = {
-  title: "KaizenHr",
-  description: "Revolutionize HR Management with KaizenHr",
-};
-
-export default function RootLayout({
+export default function PublicLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
-    </html>
-  );
+  // A nested layout should just return its children directly.
+  // The <html> and <body> from the root layout will wrap this.
+  return <>{children}</>;
 }

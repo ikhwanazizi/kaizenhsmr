@@ -1,16 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Container from "@/components/layout/Container";
 import Footer from "@/components/layout/Footer";
 import Navbar from "@/components/layout/Navbar";
-import { modules } from "@/data/ModulesData";
+import { modules, Module } from "@/data/ModulesData"; // <-- Added 'Module' type
 import RelatedModulesSection from "@/components/sections/RelatedModulesSection";
+import { getRandomModules } from "@/utils/moduleHelpers";
 
-// Data for the related modules grid.
-const relatedModules = [modules[0], modules[1], modules[2], modules[3]];
+const CURRENT_MODULE_LINK = "/hrms/time-attendance";
 
 const TimeAttendance = () => {
+  const [relatedModules, setRelatedModules] = useState<Module[]>([]);
+  useEffect(() => {
+    setRelatedModules(getRandomModules(4, CURRENT_MODULE_LINK));
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Navbar */}
@@ -108,7 +113,9 @@ const TimeAttendance = () => {
         </div>
       </div>
 
-      {/* Related Modules Section */}
+      {/* 5. This component now uses the 'relatedModules' state. It will be
+           empty on the server and then populate on the client, avoiding the error.
+      */}
       <RelatedModulesSection modules={relatedModules} />
 
       {/* Footer */}

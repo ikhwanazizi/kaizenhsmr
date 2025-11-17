@@ -1,10 +1,11 @@
-// src/app/hrms/leave-management/page.tsx
-
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import ModulePageLayout from "@/components/layout/ModulePageLayout";
-import { modules } from "@/data/ModulesData";
+import { modules, Module } from "@/data/ModulesData";
+import { getRandomModules } from "@/utils/moduleHelpers";
+
+const CURRENT_MODULE_LINK = "/hrms/leave-management";
 
 const pageData = {
   pageTitle: "Leave Management",
@@ -80,7 +81,7 @@ const pageData = {
       containerClassName: "py-0 pb-24",
     },
   ],
-  relatedModules: [modules[0], modules[1], modules[2], modules[10]],
+  // relatedModules removed from here
 };
 
 // Custom section component for this specific module
@@ -105,12 +106,18 @@ const CustomLeaveSection = () => {
 };
 
 const LeaveManagementPage = () => {
+  const [relatedModules, setRelatedModules] = useState<Module[]>([]);
+
+  useEffect(() => {
+    setRelatedModules(getRandomModules(4, CURRENT_MODULE_LINK));
+  }, []);
+
   return (
     <ModulePageLayout
       pageTitle={pageData.pageTitle}
       pageDescription={pageData.pageDescription}
       coreFeatures={pageData.coreFeatures}
-      relatedModules={pageData.relatedModules}
+      relatedModules={relatedModules}
       heroClassName="bg-gradient-to-br from-blue-50 to-indigo-100"
       heroContentClassName="py-24 text-center"
     >
