@@ -68,7 +68,19 @@ async function getAuditLogs() {
     throw logError;
   }
 
-  return { logs: (logData || []) as AuditLogEntry[] };
+  // FIX: Map the data to flatten the profiles array into a single object
+  const logs: AuditLogEntry[] = (logData || []).map((log: any) => ({
+    id: log.id,
+    created_at: log.created_at,
+    action: log.action,
+    details: log.details,
+    // Supabase often returns joined relations as arrays; extract the first one or return null
+    profiles: Array.isArray(log.profiles)
+      ? log.profiles[0] || null
+      : log.profiles,
+  }));
+
+  return { logs };
 }
 
 export default async function AuditLogPage() {
