@@ -113,6 +113,7 @@ export default function AdminSidebar({
     </h3>
   );
 
+  // Only super admins should see elevated navigation (e.g., Audit Log).
   const isSuperAdmin = profile?.role === "super_admin";
 
   return (

@@ -17,7 +17,8 @@ This page now validates access on the server before rendering the client table. 
 
 2. **Non–super-admin sees a controlled denial**
    - Sign in as the regular admin user.
-   - Navigate to `/admin/audit-log`.
+   - Confirm the sidebar does **not** show the "Audit Log" link (it is reserved for super admins).
+   - Manually navigate to `/admin/audit-log`.
    - Expect to see the "Access Denied" view with a link back to the dashboard—no network calls for `admin_audit_log` should occur.
 
 3. **Super admin sees the table data**
