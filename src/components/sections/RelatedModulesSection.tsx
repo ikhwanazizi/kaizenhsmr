@@ -1,5 +1,6 @@
 // src/components/sections/RelatedModulesSection.tsx
 import React from "react";
+import Image from "next/image";
 import Container from "@/components/layout/Container";
 
 // Define the type for a single module
@@ -7,17 +8,18 @@ type Module = {
   name: string;
   description: string;
   link: string;
+  imageSrc: string;
 };
 
 // Define the props for the component
 interface RelatedModulesSectionProps {
   modules: Module[];
-  title?: string; // Make the title an optional prop
+  title?: string;
 }
 
 const RelatedModulesSection = ({
   modules,
-  title = "One System. Infinite HR Possibilities", // Default title
+  title = "One System. Infinite HR Possibilities",
 }: RelatedModulesSectionProps) => {
   return (
     <div className="bg-slate-50">
@@ -29,24 +31,39 @@ const RelatedModulesSection = ({
           {modules.map((module, index) => (
             <div
               key={index}
-              className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-shadow duration-300 border border-gray-200"
+              className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-lg transition-shadow duration-300 border border-gray-200 flex flex-col"
             >
-              <div className="w-full h-48 bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-blue-600 text-4xl mb-2">📊</div>
-                  <p className="text-blue-500 text-sm">Module Image</p>
+              {module.imageSrc ? (
+                <div className="w-full h-48 relative bg-gray-100 overflow-hidden">
+                  <Image
+                    src={module.imageSrc}
+                    alt={`${module.name} module`}
+                    fill
+                    className="object-cover scale-120 lg:scale-100"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    priority={index < 4}
+                  />
                 </div>
-              </div>
-              <div className="p-6">
+              ) : (
+                <div className="w-full h-48 bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="text-blue-600 text-4xl mb-2">📊</div>
+                    <p className="text-blue-500 text-sm">Module Image</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-6 flex flex-col flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3 leading-tight">
                   {module.name}
                 </h3>
                 <p className="text-gray-600 text-sm leading-relaxed mb-4">
                   {module.description}
                 </p>
+
                 <a
                   href={module.link}
-                  className="inline-flex items-center text-blue-600 hover:text-blue-800 font-semibold text-sm group"
+                  className="inline-flex items-center text-blue-600 hover:text-blue-800 font-semibold text-sm group mt-auto"
                 >
                   Read More
                   <svg

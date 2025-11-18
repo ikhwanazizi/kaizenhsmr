@@ -2,17 +2,34 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronDown, ChevronUp, Menu, X } from "lucide-react";
-
+import Link from "next/link";
 import {
   hrmsSubmenus,
   resourcesSubmenus,
   companySubmenus,
 } from "@/data/submenus";
 
+// Reusable component for the new top-level links
+const NavLink = ({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) => (
+  <Link
+    href={href}
+    className="group relative flex items-center text-gray-700 hover:text-blue-600 transition-colors py-5"
+  >
+    <span>{children}</span>
+    <span className="absolute bottom-3 left-0 w-full h-0.5 bg-blue-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out origin-center"></span>
+  </Link>
+);
+
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [isClosing, setIsClosing] = useState(false); // State to handle closing animation
+  const [isClosing, setIsClosing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openMobileSubmenu, setOpenMobileSubmenu] = useState<string | null>(
     null
@@ -55,7 +72,6 @@ const Navbar = () => {
     };
   }, []);
 
-  // Effect to reset HRMS dropdown scroll when it opens
   useEffect(() => {
     if (activeDropdown === "hrms" && hrmsDropdownRef.current) {
       hrmsDropdownRef.current.scrollTo({ top: 0 });
@@ -78,11 +94,10 @@ const Navbar = () => {
     closeTimerRef.current = setTimeout(() => {
       if (!isMouseInsideRef.current) {
         setIsClosing(true);
-        // Wait for animation to finish before removing from DOM
         setTimeout(() => {
           setActiveDropdown(null);
           setIsClosing(false);
-        }, 200); // This duration MUST match the slideUp animation
+        }, 200);
       }
     }, 100);
   };
@@ -146,6 +161,10 @@ const Navbar = () => {
                   <span className="absolute bottom-3 left-0 w-full h-0.5 bg-blue-600 scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out origin-center"></span>
                 </button>
               </div>
+
+              <NavLink href="/resources/blog-articles">Blog & Articles</NavLink>
+              <NavLink href="/company/developments">Developments</NavLink>
+              <NavLink href="/company/careers">Careers</NavLink>
 
               <div
                 className="relative"
@@ -243,13 +262,17 @@ const Navbar = () => {
           onMouseLeave={closeDropdown}
         >
           <div className="max-w-7xl mx-auto p-8">
-            <div className="grid grid-cols-3 gap-1">
+            {/* 1. THIS CLASS IS CHANGED to center the content */}
+            <div className="flex flex-row justify-center gap-1">
               {resourcesSubmenus.map((item, index) => (
                 <a
                   href={item.path}
                   key={index}
                   onClick={() => setActiveDropdown(null)}
                   className="block"
+                  // 2. THIS LOGIC IS ADDED to open Brochure in a new tab
+                  target={item.name === "Brochure" ? "_blank" : "_self"}
+                  rel={item.name === "Brochure" ? "noopener noreferrer" : ""}
                 >
                   <div className="flex items-start space-x-3 p-4 hover:bg-gray-50 rounded-lg transition-colors">
                     <div className="text-blue-600 mt-1 text-xl">
@@ -281,7 +304,8 @@ const Navbar = () => {
           onMouseLeave={closeDropdown}
         >
           <div className="max-w-7xl mx-auto p-8">
-            <div className="grid grid-cols-3 gap-1">
+            {/* 1. THIS CLASS IS CHANGED to center the content */}
+            <div className="flex flex-row justify-center gap-1">
               {companySubmenus.map((item, index) => (
                 <a
                   href={item.path}
@@ -365,6 +389,11 @@ const Navbar = () => {
                       href={item.path}
                       onClick={handleMobileLinkClick}
                       className="flex items-center space-x-3 p-2 text-gray-700 hover:text-blue-600 hover:bg-gray-50 rounded-md"
+                      // 3. THIS LOGIC IS ADDED to mobile menu
+                      target={item.name === "Brochure" ? "_blank" : "_self"}
+                      rel={
+                        item.name === "Brochure" ? "noopener noreferrer" : ""
+                      }
                     >
                       <span className="text-blue-600">
                         <item.icon size={20} />
@@ -375,6 +404,37 @@ const Navbar = () => {
                 </div>
               )}
             </div>
+
+            {/* NEW TOP-LEVEL LINKS FOR MOBILE */}
+            <div>
+              <a
+                href="/resources/blog-articles"
+                onClick={handleMobileLinkClick}
+                className="w-full flex justify-between items-center py-2 text-lg font-semibold text-gray-900"
+              >
+                <span>Blog & Articles</span>
+              </a>
+            </div>
+            <div>
+              <a
+                href="/company/developments"
+                onClick={handleMobileLinkClick}
+                className="w-full flex justify-between items-center py-2 text-lg font-semibold text-gray-900"
+              >
+                <span>Developments</span>
+              </a>
+            </div>
+            <div>
+              <a
+                href="/company/careers"
+                onClick={handleMobileLinkClick}
+                className="w-full flex justify-between items-center py-2 text-lg font-semibold text-gray-900"
+              >
+                <span>Careers</span>
+              </a>
+            </div>
+            {/* END NEW LINKS */}
+
             <div>
               <button
                 onClick={() => toggleMobileSubmenu("company")}
