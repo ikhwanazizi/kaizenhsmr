@@ -12,6 +12,8 @@ type AuditLogEntry = {
   id: string;
   created_at: string | null;
   action: string;
+  adminName: string;
+  message: string;
   details: {
     message: string;
     [key: string]: any;
@@ -79,7 +81,13 @@ export default function AuditLogPage() {
         setError(logError.message);
         console.error("Error fetching audit logs:", logError);
       } else {
-        setLogs(logData as AuditLogEntry[]);
+        const transformedLogs = (logData ?? []).map((log) => ({
+          ...(log as AuditLogEntry),
+          adminName: log.profiles?.full_name || "System",
+          message: log.details?.message || "No message provided.",
+        }));
+
+        setLogs(transformedLogs);
       }
       setLoading(false);
     };
@@ -106,7 +114,7 @@ export default function AuditLogPage() {
       label: "Admin",
       render: (log) => (
         <span className="font-medium text-slate-900 dark:text-white">
-          {log.profiles?.full_name || "System"}
+          {log.adminName}
         </span>
       ),
     },
@@ -122,9 +130,7 @@ export default function AuditLogPage() {
     {
       key: "message",
       label: "Message",
-      render: (log) => (
-        <span>{log.details?.message || "No message provided."}</span>
-      ),
+      render: (log) => <span>{log.message}</span>,
     },
     {
       key: "timestamp",
@@ -177,7 +183,7 @@ export default function AuditLogPage() {
         data={logs}
         columns={columns}
         searchable={true}
-        searchKeys={["action", "details", "profiles"]}
+        searchKeys={["action", "message", "adminName"]}
         pagination={true}
         itemsPerPage={20}
         emptyMessage="No audit logs found yet. Perform an action (like creating a user) to see it here."
