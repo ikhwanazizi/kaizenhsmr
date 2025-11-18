@@ -54,7 +54,9 @@ export default function AuditLogTable({ logs }: AuditLogTableProps) {
     {
       key: "message",
       label: "Message",
-      render: (log) => <span>{log.details?.message || "No message provided."}</span>,
+      render: (log) => (
+        <span>{log.details?.message || "No message provided."}</span>
+      ),
     },
     {
       key: "timestamp",
