@@ -152,12 +152,14 @@ export default function AdminSidebar({
                 icon={Users}
                 label="Subscribers"
               />
-              {/* --- 2. ADD THE NEW LINK HERE --- */}
-              <NavLink
-                href="/admin/newsletter"
-                icon={Send}
-                label="Newsletter"
-              />
+              {/* Newsletter is restricted to super admins. */}
+              {isSuperAdmin && (
+                <NavLink
+                  href="/admin/newsletter"
+                  icon={Send}
+                  label="Newsletter"
+                />
+              )}
             </div>
           </div>
 
