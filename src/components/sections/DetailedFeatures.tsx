@@ -1,3 +1,4 @@
+// src/components/sections/DetailedFeatures.tsx
 import React from "react";
 import MiniFeatureCard from "../ui/MiniFeatureCard";
 import {
