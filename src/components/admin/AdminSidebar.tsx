@@ -113,6 +113,7 @@ export default function AdminSidebar({
     </h3>
   );
 
+  // Only super admins should see elevated navigation (e.g., Audit Log).
   const isSuperAdmin = profile?.role === "super_admin";
 
   return (
@@ -151,12 +152,14 @@ export default function AdminSidebar({
                 icon={Users}
                 label="Subscribers"
               />
-              {/* --- 2. ADD THE NEW LINK HERE --- */}
-              <NavLink
-                href="/admin/newsletter"
-                icon={Send}
-                label="Newsletter"
-              />
+              {/* Newsletter is restricted to super admins. */}
+              {isSuperAdmin && (
+                <NavLink
+                  href="/admin/newsletter"
+                  icon={Send}
+                  label="Newsletter"
+                />
+              )}
             </div>
           </div>
 

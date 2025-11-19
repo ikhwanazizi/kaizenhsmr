@@ -103,7 +103,8 @@ export default function ChangePassword() {
   // Success Modal
   if (showSuccessModal) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-4">
+      // FIX: Changed min-h-screen to h-full to fit within the layout container
+      <div className="flex items-center justify-center h-full p-4">
         <div className="w-full max-w-md p-8 text-center bg-white rounded-lg shadow-xl dark:bg-slate-800">
           <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full dark:bg-green-900/50">
             <Lock className="w-8 h-8 text-green-600 dark:text-green-400" />
@@ -143,7 +144,8 @@ export default function ChangePassword() {
         />
       )}
 
-      <div className="flex items-center justify-center min-h-screen p-4">
+      {/* FIX: Changed min-h-screen to h-full to avoid double scrolling */}
+      <div className="flex items-center justify-center h-full p-4">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-lg shadow-xl dark:bg-slate-800">
             {/* Header */}

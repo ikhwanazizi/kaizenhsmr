@@ -51,7 +51,6 @@ const ContactUsPage = () => {
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
 
-  // Load Turnstile script
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
@@ -66,32 +65,22 @@ const ContactUsPage = () => {
     };
   }, []);
 
-  // Handle Turnstile events
   useEffect(() => {
-    const handleSuccess = (e: any) => {
-      setCaptchaToken(e.detail);
+    // @ts-ignore
+    window.onTurnstileSuccess = (token: string) => {
+      setCaptchaToken(token);
     };
-
-    const handleError = () => {
+    // @ts-ignore
+    window.onTurnstileError = () => {
       setCaptchaToken(null);
       setSubmitStatus({
         type: "error",
         message: "Captcha verification failed. Please try again.",
       });
     };
-
-    const handleExpired = () => {
+    // @ts-ignore
+    window.onTurnstileExpired = () => {
       setCaptchaToken(null);
-    };
-
-    window.addEventListener("turnstile-success", handleSuccess);
-    window.addEventListener("turnstile-error", handleError);
-    window.addEventListener("turnstile-expired", handleExpired);
-
-    return () => {
-      window.removeEventListener("turnstile-success", handleSuccess);
-      window.removeEventListener("turnstile-error", handleError);
-      window.removeEventListener("turnstile-expired", handleExpired);
     };
   }, []);
 
@@ -144,7 +133,6 @@ const ContactUsPage = () => {
           "Thank you! Your message has been sent successfully. We'll get back to you soon.",
       });
 
-      // Reset form
       setFormData({
         fullName: "",
         contactNumber: "",
@@ -154,13 +142,11 @@ const ContactUsPage = () => {
         message: "",
       });
 
-      // Reset captcha
-      if (widgetIdRef.current && window.turnstile) {
-        window.turnstile.reset(widgetIdRef.current);
+      if (window.turnstile && widgetIdRef.current) {
+        // window.turnstile.reset(widgetIdRef.current);
       }
       setCaptchaToken(null);
 
-      // Scroll to top to show success message
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error: any) {
       setSubmitStatus({
@@ -172,43 +158,46 @@ const ContactUsPage = () => {
     }
   };
 
+  const inputClassName =
+    "w-full bg-white border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 focus:outline-none transition-all duration-300 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed shadow-sm";
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
       <main>
         {/* Hero Section */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 text-white">
-          <div className="absolute inset-0 bg-black/10"></div>
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-30 pb-14 text-center">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-              Ready to Transform Your HR?
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-900 via-blue-800 to-[#008080] text-white">
+          <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-10"></div>
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 text-center">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-6 tracking-tight">
+              Let's Start a Conversation
             </h1>
-            <p className="text-xl md:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto leading-relaxed">
-              Get in touch with our experts to discover how KaizenHR can empower
-              your organization.
+            <p className="text-xl md:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto leading-relaxed font-light">
+              Whether you have questions about our modules or need a custom
+              solution, our team is ready to help you transform your HR.
             </p>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           {/* Status Message */}
           {submitStatus.type && (
             <div
-              className={`mb-8 p-4 rounded-lg flex items-start gap-3 ${
+              className={`mb-10 p-4 rounded-xl flex items-start gap-3 shadow-sm ${
                 submitStatus.type === "success"
                   ? "bg-green-50 border border-green-200"
                   : "bg-red-50 border border-red-200"
               }`}
             >
               {submitStatus.type === "success" ? (
-                <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
               ) : (
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
               )}
               <p
-                className={`text-sm ${
+                className={`text-base font-medium ${
                   submitStatus.type === "success"
                     ? "text-green-800"
                     : "text-red-800"
@@ -219,63 +208,70 @@ const ContactUsPage = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             {/* Left Column: Contact Info & Map */}
-            <div className="space-y-10">
+            <div className="space-y-12">
               <div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-4">
+                <h2 className="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">
                   Contact Information
                 </h2>
-                <p className="text-lg text-gray-600">
+                <p className="text-lg text-gray-600 leading-relaxed max-w-md">
                   We're here to help. Reach out to us via phone, email, or visit
-                  our office.
+                  our office for a coffee and a chat.
                 </p>
               </div>
 
-              {/* Contact Details */}
+              {/* Contact Details - Redesigned as Cards */}
               <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-6 h-6 text-blue-600" />
+                {/* Address Card */}
+                <div className="group flex items-start gap-6 p-6 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center flex-shrink-0 text-blue-600 shadow-inner group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
+                    <MapPin className="w-7 h-7" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
                       Our Office Address
                     </h3>
-                    <p className="text-gray-600 leading-relaxed">
-                      Suite D-05-01, 5th Floor, Block D, Plaza Mont Kiara
+                    <p className="text-gray-600 leading-relaxed text-base">
+                      Suite D-05-01, 5th Floor, Block D,
+                      <br />
+                      Plaza Mont Kiara,
                       <br />
                       50480 Kuala Lumpur, Malaysia
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Mail className="w-6 h-6 text-green-600" />
+
+                {/* Email Card */}
+                <div className="group flex items-start gap-6 p-6 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center flex-shrink-0 text-green-600 shadow-inner group-hover:bg-green-600 group-hover:text-white transition-colors duration-300">
+                    <Mail className="w-7 h-7" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
                       Email Us
                     </h3>
                     <a
                       href="mailto:inquiry@kaizenhrms.com"
-                      className="text-blue-600 hover:underline"
+                      className="text-gray-600 hover:text-blue-600 font-medium text-base transition-colors block"
                     >
                       inquiry@kaizenhrms.com
                     </a>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-6 h-6 text-purple-600" />
+
+                {/* Phone Card */}
+                <div className="group flex items-start gap-6 p-6 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center flex-shrink-0 text-purple-600 shadow-inner group-hover:bg-purple-600 group-hover:text-white transition-colors duration-300">
+                    <Phone className="w-7 h-7" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
                       Call Us
                     </h3>
                     <a
                       href="tel:+60362010242"
-                      className="text-gray-600 hover:text-black"
+                      className="text-gray-600 hover:text-blue-600 font-medium text-base transition-colors block"
                     >
                       +603-62010242
                     </a>
@@ -283,204 +279,229 @@ const ContactUsPage = () => {
                 </div>
               </div>
 
-              {/* Google Maps Embed */}
-              <div>
+              {/* Google Maps Embed - Enhanced Visuals */}
+              <div className="relative w-full h-[400px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white ring-1 ring-gray-100">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3107.1002762799844!2d101.65145551015911!3d3.166211776708818!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc48f1965b1f3f%3A0xd37a5feb10a562f9!2sKaiZenHR%20Sdn%20Bhd!5e1!3m2!1sen!2smy!4v1758764819207!5m2!1sen!2smy"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3983.72930091868!2d101.64939557528581!3d3.165847553049145!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc48f1965b1f3f%3A0xd37a5feb10a562f9!2sKaiZenHR%20Sdn%20Bhd!5e0!3m2!1sen!2smy!4v1763520954012!5m2!1sen!2smy"
                   width="100%"
-                  height="350"
+                  height="100%"
                   style={{ border: 0 }}
                   allowFullScreen={true}
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  className="rounded-2xl shadow-lg border border-gray-200"
+                  className="w-full h-full object-cover"
                 ></iframe>
               </div>
             </div>
 
             {/* Right Column: Contact Form */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 border border-gray-100">
-              <div className="text-center mb-10">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Send className="w-8 h-8 text-blue-600" />
-                </div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">
-                  Send Us a Message
-                </h2>
-                <p className="text-gray-600">
-                  Fill out the form and we'll get back to you shortly.
-                </p>
-              </div>
+            <div className="bg-white rounded-3xl shadow-xl p-8 md:p-12 border border-gray-100 relative overflow-hidden lg:sticky lg:top-32">
+              {/* Decorative background blur */}
+              <div className="absolute top-0 right-0 w-80 h-80 bg-blue-100 rounded-full blur-3xl -mr-40 -mt-40 pointer-events-none opacity-50"></div>
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-100 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none opacity-50"></div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* Full Name */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      name="fullName"
-                      value={formData.fullName}
-                      onChange={handleInputChange}
-                      required
-                      disabled={isSubmitting}
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      placeholder="Enter your full name"
-                    />
+              <div className="relative">
+                <div className="text-center mb-10">
+                  <div className="w-20 h-20 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 text-blue-600 shadow-sm">
+                    <Send className="w-10 h-10 transform -rotate-12 ml-1" />
                   </div>
-                  {/* Contact Number */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Contact Number *
-                    </label>
-                    <input
-                      type="tel"
-                      name="contactNumber"
-                      value={formData.contactNumber}
-                      onChange={handleInputChange}
-                      required
-                      disabled={isSubmitting}
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      placeholder="+60 12-345 6789"
-                    />
+                  <h2 className="text-3xl font-extrabold text-gray-900 mb-3">
+                    Send Us a Message
+                  </h2>
+                  <p className="text-gray-600 text-lg">
+                    Fill out the form below and we'll get back to you shortly.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Full Name */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-800">
+                        Full Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="fullName"
+                        value={formData.fullName}
+                        onChange={handleInputChange}
+                        required
+                        disabled={isSubmitting}
+                        className={inputClassName}
+                        placeholder="Enter your full name"
+                      />
+                    </div>
+                    {/* Contact Number */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-800">
+                        Contact Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        name="contactNumber"
+                        value={formData.contactNumber}
+                        onChange={handleInputChange}
+                        required
+                        disabled={isSubmitting}
+                        className={inputClassName}
+                        placeholder="+60 12-345 6789"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* Company */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Company *
-                    </label>
-                    <input
-                      type="text"
-                      name="company"
-                      value={formData.company}
-                      onChange={handleInputChange}
-                      required
-                      disabled={isSubmitting}
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      placeholder="Your company name"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {/* Company */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-800">
+                        Company <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="company"
+                        value={formData.company}
+                        onChange={handleInputChange}
+                        required
+                        disabled={isSubmitting}
+                        className={inputClassName}
+                        placeholder="Your company name"
+                      />
+                    </div>
+                    {/* Business Email */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-800">
+                        Business Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required
+                        disabled={isSubmitting}
+                        className={inputClassName}
+                        placeholder="your.email@company.com"
+                      />
+                    </div>
                   </div>
-                  {/* Business Email */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Business Email *
+
+                  {/* Company Size */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-800">
+                      Company Size <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      disabled={isSubmitting}
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                      placeholder="your.email@company.com"
-                    />
-                  </div>
-                </div>
-
-                {/* Company Size */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Company Size *
-                  </label>
-                  <select
-                    name="companySize"
-                    value={formData.companySize}
-                    onChange={handleInputChange}
-                    required
-                    disabled={isSubmitting}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed"
-                  >
-                    <option value="">Select company size</option>
-                    <option value="1-50">1-50 employees</option>
-                    <option value="51-200">51-200 employees</option>
-                    <option value="201-500">201-500 employees</option>
-                    <option value="501-1000">501-1,000 employees</option>
-                    <option value="1000-1500">1,000-1,500 employees</option>
-                    <option value="1501-2000">1,501-2,000 employees</option>
-                    <option value="2001-3000">2,001-3,000 employees</option>
-                    <option value="3000+">3,000+ employees</option>
-                  </select>
-                </div>
-
-                {/* Message */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Message
-                  </label>
-                  <textarea
-                    name="message"
-                    value={formData.message}
-                    onChange={handleInputChange}
-                    rows={5}
-                    disabled={isSubmitting}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:outline-none transition-colors duration-300 resize-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                    placeholder="Tell us about your HR needs..."
-                  />
-                </div>
-
-                {/* Cloudflare Turnstile */}
-                <div className="flex justify-center">
-                  <div
-                    ref={turnstileRef}
-                    className="cf-turnstile"
-                    data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-                    data-callback="onTurnstileSuccess"
-                    data-error-callback="onTurnstileError"
-                    data-expired-callback="onTurnstileExpired"
-                  ></div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !captchaToken}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-8 rounded-xl font-semibold shadow-lg hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <svg
-                        className="animate-spin h-5 w-5"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
+                    <div className="relative">
+                      <select
+                        name="companySize"
+                        value={formData.companySize}
+                        onChange={handleInputChange}
+                        required
+                        disabled={isSubmitting}
+                        className={`${inputClassName} appearance-none cursor-pointer`}
                       >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
+                        <option value="" disabled className="text-gray-400">
+                          Select company size
+                        </option>
+                        <option value="1-50">1-50 employees</option>
+                        <option value="51-200">51-200 employees</option>
+                        <option value="201-500">201-500 employees</option>
+                        <option value="501-1000">501-1,000 employees</option>
+                        <option value="1000-1500">1,000-1,500 employees</option>
+                        <option value="1501-2000">1,501-2,000 employees</option>
+                        <option value="2001-3000">2,001-3,000 employees</option>
+                        <option value="3000+">3,000+ employees</option>
+                      </select>
+                      <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+                        <svg
+                          className="w-4 h-4 text-gray-500"
+                          fill="none"
                           stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-5 h-5" />
-                      Send Message
-                    </>
-                  )}
-                </button>
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
 
-                <p className="text-sm text-gray-500 text-center">
-                  By submitting, you agree to our{" "}
-                  <a href="#" className="text-blue-600 hover:underline">
-                    Privacy Policy
-                  </a>
-                  .
-                </p>
-              </form>
+                  {/* Message */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-800">
+                      Message
+                    </label>
+                    <textarea
+                      name="message"
+                      value={formData.message}
+                      onChange={handleInputChange}
+                      rows={5}
+                      disabled={isSubmitting}
+                      className={inputClassName}
+                      placeholder="Tell us about your HR needs..."
+                    />
+                  </div>
+
+                  {/* Cloudflare Turnstile */}
+                  <div className="flex justify-center py-2">
+                    <div
+                      ref={turnstileRef}
+                      className="cf-turnstile"
+                      data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                      data-callback="onTurnstileSuccess"
+                      data-error-callback="onTurnstileError"
+                      data-expired-callback="onTurnstileExpired"
+                    ></div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !captchaToken}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-8 rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl transform hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none text-lg"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <svg
+                          className="animate-spin h-5 w-5"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5" />
+                        Send Message
+                      </>
+                    )}
+                  </button>
+
+                  <p className="text-xs text-gray-500 text-center mt-6">
+                    By submitting, you agree to our{" "}
+                    <a href="#" className="text-blue-600 hover:underline">
+                      Privacy Policy
+                    </a>
+                    .
+                  </p>
+                </form>
+              </div>
             </div>
           </div>
         </div>
