@@ -13,19 +13,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KaizenHr",
-  description: "Revolutionize HR Management with KaizenHr",
+  title: "KaizenHR",
+  description: "Revolutionize HR Management with KaizenHR",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-gray-100 via-gray-200 to-gray-100 dark:from-[#0B0F19] dark:via-[#0B0F19] dark:to-black min-h-screen`}
       >
         {children}
       </body>
