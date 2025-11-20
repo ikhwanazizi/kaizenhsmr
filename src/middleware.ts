@@ -1,48 +1,110 @@
-// src/middleware.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
 export async function middleware(req: NextRequest) {
-  console.log("MIDDLEWARE IS RUNNING FOR PATH:", req.nextUrl.pathname);
-
   const res = NextResponse.next();
+  const { pathname } = req.nextUrl;
 
-  // Create a Supabase client configured to use cookies
+  // 1. Maintenance Mode Check (Uses Service Role to bypass RLS)
+  if (
+    !pathname.startsWith("/admin") &&
+    !pathname.startsWith("/login") &&
+    !pathname.startsWith("/_next") &&
+    !pathname.startsWith("/static") &&
+    !pathname.includes(".") // Exclude images/css/etc
+  ) {
+    try {
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+          auth: { persistSession: false },
+        }
+      );
+
+      const { data: setting } = await adminClient
+        .from("system_settings")
+        .select("value")
+        .eq("key", "enable_maintenance_mode")
+        .single();
+
+      // Clean the value
+      const isMaintenance =
+        setting?.value === "true" || setting?.value === true || setting?.value === "\"true\"";
+
+      if (isMaintenance) {
+        return new NextResponse(
+          `<!DOCTYPE html>
+          <html>
+            <head>
+              <title>Maintenance</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; height: 100vh; justify-content: center; align-items: center; flex-direction: column; background: #fff; color: #111; text-align: center; padding: 20px; }
+                h1 { margin-bottom: 1rem; font-size: 2rem; font-weight: 700; }
+                p { color: #666; font-size: 1.1rem; }
+              </style>
+            </head>
+            <body>
+              <h1>We'll be right back.</h1>
+              <p>The system is currently undergoing scheduled maintenance.</p>
+            </body>
+          </html>`,
+          {
+            status: 503,
+            headers: { "content-type": "text/html" },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Maintenance check failed:", error);
+    }
+  }
+
+  // 2. Standard User Authentication
+  let supabaseResponse = NextResponse.next({
+    request: req,
+  });
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value;
+        getAll() {
+          return req.cookies.getAll();
         },
-        set(name: string, value: string, options) {
-          req.cookies.set({ name, value, ...options });
-          res.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options) {
-          req.cookies.set({ name, value: "", ...options });
-          res.cookies.set({ name, value: "", ...options });
+        setAll(cookiesToSet) {
+          // Set cookies on the request
+          cookiesToSet.forEach(({ name, value, options }) =>
+            req.cookies.set(name, value)
+          );
+          
+          // FIX: Iterate and set individually instead of using setAll if types are missing
+          supabaseResponse = NextResponse.next({
+            request: req,
+          });
+          
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
   );
 
-  // Get the current user's session
+  // Refresh session
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-  console.log("SESSION OBJECT:", session);
-
-  const { pathname } = req.nextUrl;
-
-  // 1. Redirect to login if user is not authenticated and trying to access admin routes
+  // 3. Admin Route Protection
   if (!session && pathname.startsWith("/admin")) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 2. If user has a session, check their status and role in the profiles table
+  // 4. Active Status & Role Checks
   if (session && pathname.startsWith("/admin")) {
     const { data: profile, error } = await supabase
       .from("profiles")
@@ -50,34 +112,24 @@ export async function middleware(req: NextRequest) {
       .eq("id", session.user.id)
       .single();
 
-    console.log("USER PROFILE STATUS:", profile?.status);
-    console.log("USER PROFILE ROLE:", profile?.role);
-
-    // If user is not active, sign them out and redirect to login
     if (error || !profile || profile.status !== "active") {
-      // Sign out the user
       await supabase.auth.signOut();
-
-      // Clear all cookies
-      const response = NextResponse.redirect(new URL("/login", req.url));
-      response.cookies.delete("sb-access-token");
-      response.cookies.delete("sb-refresh-token");
-
-      return response;
+      const redirectUrl = new URL("/login", req.url);
+      if (profile?.status === "suspended") redirectUrl.searchParams.set("error", "suspended");
+      else if (profile?.status === "inactive") redirectUrl.searchParams.set("error", "inactive");
+      
+      return NextResponse.redirect(redirectUrl);
     }
 
-    // Check role-based access for /admin/users path
     if (pathname.startsWith("/admin/users")) {
       if (profile.role !== "super_admin") {
-        // Redirect non-super_admin users to dashboard
         return NextResponse.redirect(new URL("/admin/dashboard", req.url));
       }
     }
   }
 
-  // 3. Redirect to dashboard if user is authenticated and trying to access login page
+  // 5. Redirect logged-in users away from login page
   if (session && pathname === "/login") {
-    // Still check status before redirecting
     const { data: profile } = await supabase
       .from("profiles")
       .select("status")
@@ -86,17 +138,14 @@ export async function middleware(req: NextRequest) {
 
     if (profile?.status === "active") {
       return NextResponse.redirect(new URL("/admin/dashboard", req.url));
-    } else {
-      // Sign out inactive/suspended users
-      await supabase.auth.signOut();
-      return res;
     }
   }
 
-  return res;
+  return supabaseResponse;
 }
 
-// Ensure the middleware is only called for relevant paths.
 export const config = {
-  matcher: ["/admin/:path*", "/login"],
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+  ],
 };

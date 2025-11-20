@@ -6,8 +6,9 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { StickySidebar } from "./StickySidebar";
 import PostRenderer from "./PostRenderer";
+import { getPublicSettings } from "@/lib/public-settings"; // Import the server action
 
-// Type definitions
+// Type definitions... (Keep existing types)
 type Post = {
   id: string;
   title: string;
@@ -48,13 +49,24 @@ export default function BlogPostLayout({
   const [toc, setToc] = useState<TOCItem[]>([]);
   const [activeSection, setActiveSection] = useState<string>("");
 
+  // --- NEW: State for Default Author ---
+  const [defaultAuthorName, setDefaultAuthorName] = useState("KaizenHR Team");
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
   useEffect(() => {
-    fetchPost();
+    // Fetch settings and post in parallel
+    const init = async () => {
+      const settings = await getPublicSettings();
+      if (settings.blog_default_author_name) {
+        setDefaultAuthorName(settings.blog_default_author_name);
+      }
+      await fetchPost();
+    };
+    init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, category]);
 
@@ -67,8 +79,6 @@ export default function BlogPostLayout({
 
   const fetchPost = async () => {
     try {
-      // --- THIS QUERY IS NOW FIXED ---
-      // We must specify which foreign key to use for the join
       const { data: postData, error: postError } = await supabase
         .from("posts")
         .select(
@@ -79,7 +89,6 @@ export default function BlogPostLayout({
         .eq("category", category)
         .eq("status", "published")
         .single();
-      // --- END FIX ---
 
       if (postError && postError.code !== "PGRST116") {
         throw postError;
@@ -183,10 +192,10 @@ export default function BlogPostLayout({
               </h1>
               <div className="flex items-center text-gray-600">
                 <span>
-                  By{" "}
+                  By {/* --- UPDATED: Use the dynamic default author --- */}
                   {post.author?.full_name ||
                     post.author?.email ||
-                    "KaizenHR Team"}
+                    defaultAuthorName}
                 </span>
               </div>
             </div>

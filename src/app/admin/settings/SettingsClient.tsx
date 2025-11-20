@@ -20,7 +20,7 @@ import {
   ToggleLeft,
   Mail,
   ShieldAlert,
-  FileText, // New icons
+  FileText,
 } from "lucide-react";
 import Toast from "@/components/shared/Toast";
 import Link from "next/link";
@@ -44,10 +44,10 @@ type SocialLink = {
 
 const CATEGORIES: Category[] = [
   { id: "general", label: "General System", icon: Layout },
-  { id: "features", label: "Feature Toggles", icon: ToggleLeft }, // New
-  { id: "email_config", label: "Email Configuration", icon: Mail }, // New
-  { id: "user_security", label: "User & Security", icon: ShieldAlert }, // New
-  { id: "blog_config", label: "Blog Settings", icon: FileText }, // New
+  { id: "features", label: "Feature Toggles", icon: ToggleLeft },
+  { id: "email_config", label: "Email Configuration", icon: Mail },
+  { id: "user_security", label: "User & Security", icon: ShieldAlert },
+  { id: "blog_config", label: "Blog Settings", icon: FileText },
   { id: "contact", label: "Contact & Company", icon: Globe },
   { id: "social", label: "Social & Apps", icon: Share2 },
   { id: "hero", label: "Homepage Hero", icon: Layout },
@@ -56,7 +56,7 @@ const CATEGORIES: Category[] = [
   { id: "footer", label: "Footer", icon: Copyright },
 ];
 
-// 1. Define Factory Defaults
+// Define Factory Defaults
 const FACTORY_DEFAULTS: SystemSettings = {
   newsletter_daily_limit: "100",
   audit_log_retention_days: "90",
@@ -66,7 +66,6 @@ const FACTORY_DEFAULTS: SystemSettings = {
   contact_phone: "+603-62010242",
   company_slogan: "Malaysia's Tier 1 Enterprise HR Solution",
   company_founding_year: "1997",
-  // Default social links as a JSON string
   social_links: JSON.stringify([
     { platform: "Facebook", url: "https://facebook.com" },
     { platform: "LinkedIn", url: "https://linkedin.com" },
@@ -81,20 +80,24 @@ const FACTORY_DEFAULTS: SystemSettings = {
   integration_google_maps_embed:
     "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3983.72930091868!2d101.64939557528581!3d3.165847553049145!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc48f1965b1f3f%3A0xd37a5feb10a562f9!2sKaiZenHR%20Sdn%20Bhd!5e0!3m2!1sen!2smy!4v1763566181982!5m2!1sen!2smy",
   footer_copyright_text: "© KaiZenHR Sdn Bhd 2025. All Rights Reserved.",
-  // New Defaults
   enable_maintenance_mode: "false",
   enable_public_registration: "true",
-  admin_notification_email: "ikhwan0059@gmail.com",
+  admin_notification_email: "kaizenhrdev@kaizenhr.my",
   email_sender_name: "KaizenHR",
-  user_ban_duration_hours: "876000", // 100 years
+  email_sender_address: "onboarding@resend.dev", // Default free tier
+  user_ban_duration_hours: "876000",
   blog_default_author_name: "KaizenHR Team",
 };
 
-// 2. Map keys to categories for scoped resetting
+// Map keys to categories
 const CATEGORY_KEYS: Record<string, string[]> = {
   general: ["newsletter_daily_limit", "audit_log_retention_days"],
   features: ["enable_maintenance_mode", "enable_public_registration"],
-  email_config: ["admin_notification_email", "email_sender_name"],
+  email_config: [
+    "admin_notification_email",
+    "email_sender_name",
+    "email_sender_address",
+  ], // Added here
   user_security: ["user_ban_duration_hours"],
   blog_config: ["blog_default_author_name"],
   contact: [
@@ -122,7 +125,7 @@ export default function SettingsClient({
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string>("contact"); // Start at contact
+  const [activeCategory, setActiveCategory] = useState<string>("contact");
   const [toast, setToast] = useState<{
     show: boolean;
     message: string;
@@ -131,11 +134,8 @@ export default function SettingsClient({
 
   const [currentInitialSettings, setInitialSettings] =
     useState(initialSettings);
-
-  // State for managing the dynamic list of social links
   const [socialLinksList, setSocialLinksList] = useState<SocialLink[]>([]);
 
-  // Initialize social links list from settings JSON string
   useEffect(() => {
     try {
       const parsed = settings.social_links
@@ -181,20 +181,14 @@ export default function SettingsClient({
   };
 
   const handleReset = () => {
-    if (
-      confirm(
-        "Reset this section to FACTORY DEFAULTS? This will discard your current changes."
-      )
-    ) {
+    if (confirm("Reset this section to FACTORY DEFAULTS?")) {
       const keysToReset = CATEGORY_KEYS[activeCategory] || [];
       const newSettings = { ...settings };
 
       keysToReset.forEach((key) => {
-        // Fallback to empty string if default doesn't exist
         newSettings[key] = FACTORY_DEFAULTS[key] || "";
       });
 
-      // Specifically for social links, we need to update the local state too
       if (activeCategory === "social") {
         try {
           const defaultSocials = JSON.parse(FACTORY_DEFAULTS.social_links);
@@ -207,7 +201,7 @@ export default function SettingsClient({
       setSettings(newSettings);
       setToast({
         show: true,
-        message: "Restored factory defaults for this section.",
+        message: "Restored factory defaults.",
         type: "success",
       });
     }
@@ -217,7 +211,6 @@ export default function SettingsClient({
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  // --- Social Links Helpers ---
   const addSocialLink = () => {
     const newList = [...socialLinksList, { platform: "", url: "" }];
     setSocialLinksList(newList);
@@ -255,7 +248,6 @@ export default function SettingsClient({
         />
       )}
 
-      {/* Sidebar Navigation for Settings */}
       <div className="w-full lg:w-64 flex-shrink-0">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           {CATEGORIES.map((cat) => (
@@ -279,7 +271,6 @@ export default function SettingsClient({
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -294,7 +285,6 @@ export default function SettingsClient({
           </div>
 
           <div className="p-6 space-y-6">
-            {/* 1. GENERAL SYSTEM */}
             {activeCategory === "general" && (
               <>
                 <div className="space-y-2">
@@ -318,11 +308,7 @@ export default function SettingsClient({
                     }
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                   />
-                  <p className="text-xs text-gray-500">
-                    Hard cap for Resend API calls (default: 100).
-                  </p>
                 </div>
-
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Audit Log Retention
@@ -343,64 +329,59 @@ export default function SettingsClient({
               </>
             )}
 
-            {/* 2. FEATURE TOGGLES */}
             {activeCategory === "features" && (
-              <>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg dark:border-gray-700">
-                    <div>
-                      <label className="text-sm font-medium text-gray-900 dark:text-white block">
-                        Maintenance Mode
-                      </label>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Disable public access to the site.
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={settings.enable_maintenance_mode === "true"}
-                        onChange={(e) =>
-                          handleChange(
-                            "enable_maintenance_mode",
-                            String(e.target.checked)
-                          )
-                        }
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg dark:border-gray-700">
+                  <div>
+                    <label className="text-sm font-medium text-gray-900 dark:text-white block">
+                      Maintenance Mode
                     </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Disable public access to the site.
+                    </p>
                   </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg dark:border-gray-700">
-                    <div>
-                      <label className="text-sm font-medium text-gray-900 dark:text-white block">
-                        Public Registration
-                      </label>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Allow new users to sign up for newsletter.
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="sr-only peer"
-                        checked={settings.enable_public_registration === "true"}
-                        onChange={(e) =>
-                          handleChange(
-                            "enable_public_registration",
-                            String(e.target.checked)
-                          )
-                        }
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={settings.enable_maintenance_mode === "true"}
+                      onChange={(e) =>
+                        handleChange(
+                          "enable_maintenance_mode",
+                          String(e.target.checked)
+                        )
+                      }
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                  </label>
                 </div>
-              </>
+                <div className="flex items-center justify-between p-4 border rounded-lg dark:border-gray-700">
+                  <div>
+                    <label className="text-sm font-medium text-gray-900 dark:text-white block">
+                      Public Registration
+                    </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Allow new users to sign up for newsletter.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={settings.enable_public_registration === "true"}
+                      onChange={(e) =>
+                        handleChange(
+                          "enable_public_registration",
+                          String(e.target.checked)
+                        )
+                      }
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+              </div>
             )}
 
-            {/* 3. EMAIL CONFIGURATION */}
             {activeCategory === "email_config" && (
               <>
                 <div className="space-y-2">
@@ -415,10 +396,6 @@ export default function SettingsClient({
                     }
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                   />
-                  <p className="text-xs text-gray-500">
-                    This is the email address that will receive alerts when a
-                    user submits a &quot;Contact Us&quot; form.
-                  </p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -432,60 +409,61 @@ export default function SettingsClient({
                     }
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                   />
-                  <p className="text-xs text-gray-500">
-                    This is the name users will see in their inbox (e.g.,
-                    &quot;KaizenHR Support&quot;) when they receive an automated
-                    email from the system.
-                  </p>
                 </div>
-              </>
-            )}
-
-            {/* 4. USER & SECURITY */}
-            {activeCategory === "user_security" && (
-              <>
+                {/* --- NEW FIELD --- */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    User Ban Duration (Hours)
-                  </label>
-                  <input
-                    type="number"
-                    value={settings.user_ban_duration_hours || ""}
-                    onChange={(e) =>
-                      handleChange("user_ban_duration_hours", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Default: 876000 (100 years).
-                  </p>
-                </div>
-              </>
-            )}
-
-            {/* 5. BLOG SETTINGS */}
-            {activeCategory === "blog_config" && (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Default Blog Author
+                    Sender Email Address
                   </label>
                   <input
                     type="text"
-                    value={settings.blog_default_author_name || ""}
+                    value={settings.email_sender_address || ""}
                     onChange={(e) =>
-                      handleChange("blog_default_author_name", e.target.value)
+                      handleChange("email_sender_address", e.target.value)
                     }
+                    placeholder="onboarding@resend.dev"
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                   />
                   <p className="text-xs text-gray-500">
-                    Displayed if the actual author has no name set.
+                    Must be 'onboarding@resend.dev' (Free) or a verified domain
+                    email (Paid). Falls back to .env if empty.
                   </p>
                 </div>
               </>
             )}
 
-            {/* 6. CONTACT & COMPANY (Existing) */}
+            {activeCategory === "user_security" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  User Ban Duration (Hours)
+                </label>
+                <input
+                  type="number"
+                  value={settings.user_ban_duration_hours || ""}
+                  onChange={(e) =>
+                    handleChange("user_ban_duration_hours", e.target.value)
+                  }
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+            )}
+
+            {activeCategory === "blog_config" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Default Blog Author
+                </label>
+                <input
+                  type="text"
+                  value={settings.blog_default_author_name || ""}
+                  onChange={(e) =>
+                    handleChange("blog_default_author_name", e.target.value)
+                  }
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+            )}
+
             {activeCategory === "contact" && (
               <>
                 <div className="space-y-2">
@@ -558,7 +536,6 @@ export default function SettingsClient({
               </>
             )}
 
-            {/* 7. SOCIAL & APPS (Existing) */}
             {activeCategory === "social" && (
               <>
                 <div className="space-y-4">
@@ -567,13 +544,11 @@ export default function SettingsClient({
                       Social Media Links
                     </label>
                   </div>
-
                   {socialLinksList.length === 0 && (
                     <p className="text-sm text-gray-500 italic">
                       No social links added yet.
                     </p>
                   )}
-
                   <div className="space-y-3">
                     {socialLinksList.map((link, index) => (
                       <div key={index} className="flex gap-3 items-start">
@@ -588,7 +563,7 @@ export default function SettingsClient({
                                 e.target.value
                               )
                             }
-                            placeholder="Platform (e.g. TikTok)"
+                            placeholder="Platform"
                             className="w-full px-3 py-2 text-sm border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                           />
                         </div>
@@ -599,33 +574,27 @@ export default function SettingsClient({
                             onChange={(e) =>
                               updateSocialLink(index, "url", e.target.value)
                             }
-                            placeholder="URL (e.g. https://tiktok.com/...)"
+                            placeholder="URL"
                             className="w-full px-3 py-2 text-sm border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                           />
                         </div>
                         <button
                           onClick={() => removeSocialLink(index)}
-                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                          title="Remove link"
+                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                         >
                           <Trash2 size={18} />
                         </button>
                       </div>
                     ))}
                   </div>
-
                   <button
                     onClick={addSocialLink}
-                    className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                    className="flex items-center gap-2 text-sm font-medium text-blue-600"
                   >
                     <Plus size={16} /> Add Social Link
                   </button>
                 </div>
-
                 <div className="border-t border-gray-100 dark:border-gray-700 pt-4 mt-2">
-                  <h3 className="text-sm font-semibold mb-4 text-gray-900 dark:text-white">
-                    Mobile App Links (Fixed)
-                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -658,7 +627,6 @@ export default function SettingsClient({
               </>
             )}
 
-            {/* 8. HERO (Existing) */}
             {activeCategory === "hero" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -675,7 +643,6 @@ export default function SettingsClient({
               </div>
             )}
 
-            {/* 9. MARKETING (Existing) */}
             {activeCategory === "marketing" && (
               <>
                 <div className="space-y-2">
@@ -710,7 +677,6 @@ export default function SettingsClient({
               </>
             )}
 
-            {/* 10. INTEGRATIONS (Existing) */}
             {activeCategory === "integrations" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -730,7 +696,6 @@ export default function SettingsClient({
               </div>
             )}
 
-            {/* 11. FOOTER (Existing) */}
             {activeCategory === "footer" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -748,7 +713,6 @@ export default function SettingsClient({
             )}
           </div>
 
-          {/* Footer Actions */}
           <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
             <button
               onClick={handleReset}
