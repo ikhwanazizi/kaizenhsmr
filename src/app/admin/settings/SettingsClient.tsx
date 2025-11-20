@@ -17,11 +17,15 @@ import {
   RotateCcw,
   Plus,
   Trash2,
+  ToggleLeft,
+  Mail,
+  ShieldAlert,
+  FileText, // New icons
 } from "lucide-react";
 import Toast from "@/components/shared/Toast";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import SettingsImageUploader from "@/components/admin/SettingsImageUploader"; // <-- IMPORT NEW COMPONENT
+import SettingsImageUploader from "@/components/admin/SettingsImageUploader";
 
 type SystemSettings = {
   [key: string]: string;
@@ -40,6 +44,10 @@ type SocialLink = {
 
 const CATEGORIES: Category[] = [
   { id: "general", label: "General System", icon: Layout },
+  { id: "features", label: "Feature Toggles", icon: ToggleLeft }, // New
+  { id: "email_config", label: "Email Configuration", icon: Mail }, // New
+  { id: "user_security", label: "User & Security", icon: ShieldAlert }, // New
+  { id: "blog_config", label: "Blog Settings", icon: FileText }, // New
   { id: "contact", label: "Contact & Company", icon: Globe },
   { id: "social", label: "Social & Apps", icon: Share2 },
   { id: "hero", label: "Homepage Hero", icon: Layout },
@@ -73,11 +81,22 @@ const FACTORY_DEFAULTS: SystemSettings = {
   integration_google_maps_embed:
     "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3983.72930091868!2d101.64939557528581!3d3.165847553049145!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc48f1965b1f3f%3A0xd37a5feb10a562f9!2sKaiZenHR%20Sdn%20Bhd!5e0!3m2!1sen!2smy!4v1763566181982!5m2!1sen!2smy",
   footer_copyright_text: "© KaiZenHR Sdn Bhd 2025. All Rights Reserved.",
+  // New Defaults
+  enable_maintenance_mode: "false",
+  enable_public_registration: "true",
+  admin_notification_email: "ikhwan0059@gmail.com",
+  email_sender_name: "KaizenHR",
+  user_ban_duration_hours: "876000", // 100 years
+  blog_default_author_name: "KaizenHR Team",
 };
 
 // 2. Map keys to categories for scoped resetting
 const CATEGORY_KEYS: Record<string, string[]> = {
   general: ["newsletter_daily_limit", "audit_log_retention_days"],
+  features: ["enable_maintenance_mode", "enable_public_registration"],
+  email_config: ["admin_notification_email", "email_sender_name"],
+  user_security: ["user_ban_duration_hours"],
+  blog_config: ["blog_default_author_name"],
   contact: [
     "company_slogan",
     "company_founding_year",
@@ -103,7 +122,7 @@ export default function SettingsClient({
 }) {
   const [settings, setSettings] = useState(initialSettings);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string>("contact");
+  const [activeCategory, setActiveCategory] = useState<string>("contact"); // Start at contact
   const [toast, setToast] = useState<{
     show: boolean;
     message: string;
@@ -171,8 +190,19 @@ export default function SettingsClient({
       const newSettings = { ...settings };
 
       keysToReset.forEach((key) => {
+        // Fallback to empty string if default doesn't exist
         newSettings[key] = FACTORY_DEFAULTS[key] || "";
       });
+
+      // Specifically for social links, we need to update the local state too
+      if (activeCategory === "social") {
+        try {
+          const defaultSocials = JSON.parse(FACTORY_DEFAULTS.social_links);
+          setSocialLinksList(defaultSocials);
+        } catch (e) {
+          setSocialLinksList([]);
+        }
+      }
 
       setSettings(newSettings);
       setToast({
@@ -313,7 +343,149 @@ export default function SettingsClient({
               </>
             )}
 
-            {/* 2. CONTACT & COMPANY */}
+            {/* 2. FEATURE TOGGLES */}
+            {activeCategory === "features" && (
+              <>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 border rounded-lg dark:border-gray-700">
+                    <div>
+                      <label className="text-sm font-medium text-gray-900 dark:text-white block">
+                        Maintenance Mode
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Disable public access to the site.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={settings.enable_maintenance_mode === "true"}
+                        onChange={(e) =>
+                          handleChange(
+                            "enable_maintenance_mode",
+                            String(e.target.checked)
+                          )
+                        }
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 border rounded-lg dark:border-gray-700">
+                    <div>
+                      <label className="text-sm font-medium text-gray-900 dark:text-white block">
+                        Public Registration
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Allow new users to sign up for newsletter.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={settings.enable_public_registration === "true"}
+                        onChange={(e) =>
+                          handleChange(
+                            "enable_public_registration",
+                            String(e.target.checked)
+                          )
+                        }
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 3. EMAIL CONFIGURATION */}
+            {activeCategory === "email_config" && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Admin Notification Email
+                  </label>
+                  <input
+                    type="email"
+                    value={settings.admin_notification_email || ""}
+                    onChange={(e) =>
+                      handleChange("admin_notification_email", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500">
+                    This is the email address that will receive alerts when a
+                    user submits a &quot;Contact Us&quot; form.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Email Sender Name
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.email_sender_name || ""}
+                    onChange={(e) =>
+                      handleChange("email_sender_name", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500">
+                    This is the name users will see in their inbox (e.g.,
+                    &quot;KaizenHR Support&quot;) when they receive an automated
+                    email from the system.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* 4. USER & SECURITY */}
+            {activeCategory === "user_security" && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    User Ban Duration (Hours)
+                  </label>
+                  <input
+                    type="number"
+                    value={settings.user_ban_duration_hours || ""}
+                    onChange={(e) =>
+                      handleChange("user_ban_duration_hours", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Default: 876000 (100 years).
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* 5. BLOG SETTINGS */}
+            {activeCategory === "blog_config" && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Default Blog Author
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.blog_default_author_name || ""}
+                    onChange={(e) =>
+                      handleChange("blog_default_author_name", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Displayed if the actual author has no name set.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {/* 6. CONTACT & COMPANY (Existing) */}
             {activeCategory === "contact" && (
               <>
                 <div className="space-y-2">
@@ -326,7 +498,6 @@ export default function SettingsClient({
                     onChange={(e) =>
                       handleChange("company_slogan", e.target.value)
                     }
-                    placeholder="Malaysia's Tier 1 Enterprise HR Solution"
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                   />
                 </div>
@@ -340,12 +511,8 @@ export default function SettingsClient({
                     onChange={(e) =>
                       handleChange("company_founding_year", e.target.value)
                     }
-                    placeholder="1997"
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                   />
-                  <p className="text-xs text-gray-500">
-                    Used to calculate "Years of Experience" automatically.
-                  </p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -357,7 +524,6 @@ export default function SettingsClient({
                     onChange={(e) =>
                       handleChange("contact_address", e.target.value)
                     }
-                    placeholder="Suite D-05-01..."
                     className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                   />
                 </div>
@@ -392,7 +558,7 @@ export default function SettingsClient({
               </>
             )}
 
-            {/* 3. SOCIAL & APPS */}
+            {/* 7. SOCIAL & APPS (Existing) */}
             {activeCategory === "social" && (
               <>
                 <div className="space-y-4">
@@ -492,7 +658,7 @@ export default function SettingsClient({
               </>
             )}
 
-            {/* 4. HERO */}
+            {/* 8. HERO (Existing) */}
             {activeCategory === "hero" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -504,43 +670,47 @@ export default function SettingsClient({
                   onChange={(e) =>
                     handleChange("home_hero_video_id", e.target.value)
                   }
-                  placeholder="https://www.youtube.com/embed/..."
                   className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                 />
-                <p className="text-xs text-gray-500">
-                  Must be an embed link (e.g. youtube.com/embed/ID)
-                </p>
               </div>
             )}
 
-            {/* 5. MARKETING */}
+            {/* 9. MARKETING (Existing) */}
             {activeCategory === "marketing" && (
               <>
-                <SettingsImageUploader
-                  label="Trial Image URL"
-                  value={settings.marketing_trial_image || ""}
-                  onChange={(url) => handleChange("marketing_trial_image", url)}
-                />
+                <div className="space-y-2">
+                  <SettingsImageUploader
+                    label="Trial Image URL"
+                    value={settings.marketing_trial_image || ""}
+                    onChange={(url) =>
+                      handleChange("marketing_trial_image", url)
+                    }
+                  />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <SettingsImageUploader
-                    label="Award Image 1 URL"
-                    value={settings.marketing_award_image_1 || ""}
-                    onChange={(url) =>
-                      handleChange("marketing_award_image_1", url)
-                    }
-                  />
-                  <SettingsImageUploader
-                    label="Award Image 2 URL"
-                    value={settings.marketing_award_image_2 || ""}
-                    onChange={(url) =>
-                      handleChange("marketing_award_image_2", url)
-                    }
-                  />
+                  <div className="space-y-2">
+                    <SettingsImageUploader
+                      label="Award Image 1 URL"
+                      value={settings.marketing_award_image_1 || ""}
+                      onChange={(url) =>
+                        handleChange("marketing_award_image_1", url)
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <SettingsImageUploader
+                      label="Award Image 2 URL"
+                      value={settings.marketing_award_image_2 || ""}
+                      onChange={(url) =>
+                        handleChange("marketing_award_image_2", url)
+                      }
+                    />
+                  </div>
                 </div>
               </>
             )}
 
-            {/* 6. INTEGRATIONS */}
+            {/* 10. INTEGRATIONS (Existing) */}
             {activeCategory === "integrations" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -556,15 +726,11 @@ export default function SettingsClient({
                     )
                   }
                   className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white font-mono text-xs"
-                  placeholder="https://www.google.com/maps/embed?..."
                 />
-                <p className="text-xs text-gray-500">
-                  Copy the 'src' attribute from the Google Maps Embed HTML.
-                </p>
               </div>
             )}
 
-            {/* 7. FOOTER */}
+            {/* 11. FOOTER (Existing) */}
             {activeCategory === "footer" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -576,7 +742,6 @@ export default function SettingsClient({
                   onChange={(e) =>
                     handleChange("footer_copyright_text", e.target.value)
                   }
-                  placeholder="© KaiZenHR Sdn Bhd 2025. All Rights Reserved."
                   className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                 />
               </div>

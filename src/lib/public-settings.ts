@@ -13,7 +13,7 @@ export type PublicSettings = {
   company_founding_year?: string;
   
   // Social & Apps
-  social_links?: string; // JSON string: { platform: string; url: string }[]
+  social_links?: string;
   link_app_store?: string;
   link_google_play?: string;
   
@@ -30,6 +30,13 @@ export type PublicSettings = {
   
   // Footer
   footer_copyright_text?: string;
+
+  // --- NEW: Feature Toggles ---
+  enable_maintenance_mode?: string; // "true" | "false"
+  enable_public_registration?: string; // "true" | "false"
+
+  // --- NEW: Blog ---
+  blog_default_author_name?: string;
 };
 
 export async function getPublicSettings(): Promise<PublicSettings> {
@@ -41,7 +48,7 @@ export async function getPublicSettings(): Promise<PublicSettings> {
     "contact_phone",
     "company_slogan",
     "company_founding_year",
-    "social_links", // <--- CHANGED
+    "social_links",
     "link_app_store",
     "link_google_play",
     "home_hero_video_id",
@@ -49,7 +56,11 @@ export async function getPublicSettings(): Promise<PublicSettings> {
     "marketing_award_image_2",
     "marketing_trial_image",
     "integration_google_maps_embed",
-    "footer_copyright_text"
+    "footer_copyright_text",
+    // New Keys
+    "enable_maintenance_mode",
+    "enable_public_registration",
+    "blog_default_author_name"
   ];
 
   const { data } = await supabase
@@ -62,7 +73,6 @@ export async function getPublicSettings(): Promise<PublicSettings> {
   if (data) {
     data.forEach((row) => {
       try {
-        // Handle JSON strings if they were saved that way
         const parsed = JSON.parse(row.value as string);
         // @ts-ignore
         settings[row.key] = typeof parsed === 'string' ? parsed : JSON.stringify(parsed);

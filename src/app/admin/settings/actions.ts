@@ -67,7 +67,7 @@ export async function getSystemSettings(): Promise<{
     "company_founding_year",
     
     // Part 2: Social Media & App Links
-    "social_links", // <--- CHANGED
+    "social_links",
     "link_app_store",
     "link_google_play",
     
@@ -84,6 +84,14 @@ export async function getSystemSettings(): Promise<{
     
     // Part 6: Footer
     "footer_copyright_text",
+
+    // --- NEW APPROVED SETTINGS ---
+    "blog_default_author_name",
+    "user_ban_duration_hours",
+    "admin_notification_email",
+    "email_sender_name",
+    "enable_maintenance_mode",
+    "enable_public_registration"
   ];
 
   const { data, error } = await supabase
