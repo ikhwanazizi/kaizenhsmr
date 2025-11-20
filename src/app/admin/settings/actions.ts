@@ -3,7 +3,6 @@
 
 import { createClient } from "@/lib/server";
 import { revalidatePath } from "next/cache";
-import type { Database } from "@/types/supabase";
 
 type SystemSettings = {
   [key: string]: string;
@@ -51,13 +50,40 @@ export async function getSystemSettings(): Promise<{
     return {
       success: false,
       settings: {},
-      message: authCheck.message || "Access denied.", // Add fallback
+      message: authCheck.message || "Access denied.",
     };
   }
 
   const settingsKeys = [
+    // Existing
     "newsletter_daily_limit",
     "audit_log_retention_days",
+    
+    // Part 1: Contact & Company Information
+    "contact_address",
+    "contact_email",
+    "contact_phone",
+    "company_slogan",
+    "company_founding_year",
+    
+    // Part 2: Social Media & App Links
+    "social_links", // <--- CHANGED
+    "link_app_store",
+    "link_google_play",
+    
+    // Part 3: Homepage - Hero Section
+    "home_hero_video_id",
+    
+    // Part 4: Marketing Sections
+    "marketing_award_image_1",
+    "marketing_award_image_2",
+    "marketing_trial_image",
+
+    // Part 5: Integrations
+    "integration_google_maps_embed",
+    
+    // Part 6: Footer
+    "footer_copyright_text",
   ];
 
   const { data, error } = await supabase
@@ -71,9 +97,10 @@ export async function getSystemSettings(): Promise<{
 
   const settingsMap: SystemSettings = {};
   data.forEach((row) => {
-    // The value is stored as a JSON string (e.g., '"90"'), so we parse it.
     try {
-      settingsMap[row.key] = JSON.parse(row.value as string);
+      // Handle JSON strings if they were saved that way
+      const parsed = JSON.parse(row.value as string);
+      settingsMap[row.key] = typeof parsed === 'string' ? parsed : JSON.stringify(parsed);
     } catch (e) {
       settingsMap[row.key] = row.value as string;
     }
@@ -98,27 +125,30 @@ export async function updateSystemSetting(key: string, value: string) {
 
   const { error } = await supabase
     .from("system_settings")
-    .update({
-      value: valueToSave as any, // Cast to any to bypass strict type
+    .upsert({
+      key: key,
+      value: valueToSave as any,
       updated_by: authCheck.userId,
-    })
-    .eq("key", key);
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' });
 
   if (error) {
     return { success: false, message: error.message };
   }
 
-  // Log this action to the audit log
+  // Log this action
   await supabase.from("admin_audit_log").insert({
     admin_id: authCheck.userId,
     action: "settings.update",
     details: {
-      message: `Updated system setting: ${key} to ${value}`,
+      message: `Updated setting: ${key}`,
       key,
-      value,
+      // value, // Omitted for brevity in logs if sensitive
     },
   });
 
   revalidatePath("/admin/settings");
+  revalidatePath("/", "layout"); 
+  
   return { success: true, message: "Setting updated successfully" };
 }

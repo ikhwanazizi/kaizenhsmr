@@ -2,8 +2,18 @@ import React from "react";
 import Container from "@/components/layout/Container";
 import Footer from "@/components/layout/Footer";
 import Navbar from "@/components/layout/Navbar";
+import { getPublicSettings } from "@/lib/public-settings";
 
-const AboutUs = () => {
+const AboutUs = async () => {
+  // Fetch settings on the server
+  const settings = await getPublicSettings();
+
+  // Calculate years of experience
+  // Default to 1997 if not set
+  const foundingYear = parseInt(settings.company_founding_year || "1997");
+  const currentYear = new Date().getFullYear();
+  const yearsExperience = currentYear - foundingYear;
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
@@ -36,13 +46,14 @@ const AboutUs = () => {
             <div className="max-w-4xl mx-auto">
               <div className="space-y-8 text-lg text-gray-700 leading-relaxed">
                 <p>
-                  Established in 1997, kaizen HRMS has been a trusted name in HR
-                  technology for over 28 years, embedding best practices into
-                  every module we deliver. We began with a clear mission: to
-                  simplify HR with a foundational suite of Payroll, Personnel,
-                  Leave, and Claims modules. From the outset, we understood the
-                  importance of precision, compliance, and user-friendly design,
-                  empowering HR professionals to focus on people, not paperwork.
+                  Established in {foundingYear}, kaizen HRMS has been a trusted
+                  name in HR technology for over {yearsExperience} years,
+                  embedding best practices into every module we deliver. We
+                  began with a clear mission: to simplify HR with a foundational
+                  suite of Payroll, Personnel, Leave, and Claims modules. From
+                  the outset, we understood the importance of precision,
+                  compliance, and user-friendly design, empowering HR
+                  professionals to focus on people, not paperwork.
                 </p>
                 <p>
                   Today, our vision has grown into a comprehensive platform of
@@ -65,10 +76,15 @@ const AboutUs = () => {
                 </div>
 
                 <p>
-                  With nearly three decades of proven excellence, kaizen HRMS is
-                  widely recognized as Malaysia’s Tier 1 Enterprise HR Solution,
-                  helping leading organizations across industries build smarter,
-                  more productive, and engaged workforces.
+                  With nearly{" "}
+                  {yearsExperience > 25
+                    ? "three decades"
+                    : `${yearsExperience} years`}{" "}
+                  of proven excellence, kaizen HRMS is widely recognized as{" "}
+                  {settings.company_slogan ||
+                    "Malaysia’s Tier 1 Enterprise HR Solution"}
+                  , helping leading organizations across industries build
+                  smarter, more productive, and engaged workforces.
                 </p>
               </div>
             </div>

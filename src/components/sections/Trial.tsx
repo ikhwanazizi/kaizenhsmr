@@ -3,8 +3,14 @@ import React from "react";
 import Link from "next/link";
 import Container from "../layout/Container";
 import { Check, ArrowRight } from "lucide-react";
+import { getPublicSettings } from "@/lib/public-settings";
 
-const Trial = () => {
+const Trial = async () => {
+  const settings = await getPublicSettings();
+  const imageSrc =
+    settings.marketing_trial_image ||
+    "https://www.kaizenhr.my/wp-content/uploads/2015/01/business.webp";
+
   return (
     <div className="py-24 bg-white overflow-hidden">
       <Container>
@@ -78,12 +84,10 @@ const Trial = () => {
           </div>
 
           {/* Right Column: Image Area */}
-          {/* Removed justify-end to bring it closer to center. Added lg:pl-12 for optical balance */}
           <div className="relative flex justify-center lg:pl-12">
             <div className="relative w-full max-w-md">
-              {/* Clean image as requested, rounded corners for modern feel */}
               <img
-                src="https://www.kaizenhr.my/wp-content/uploads/2015/01/business.webp"
+                src={imageSrc}
                 alt="HR Team Collaboration"
                 className="w-full h-auto rounded-2xl object-cover"
               />

@@ -12,7 +12,10 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+// IMPORT SETTINGS HELPER
+import { getPublicSettings, type PublicSettings } from "@/lib/public-settings";
 
+// --- 1. FIX: Move the interface declaration here and make it complete ---
 declare global {
   interface Window {
     turnstile: {
@@ -28,8 +31,13 @@ declare global {
       reset: (widgetId: string) => void;
       remove: (widgetId: string) => void;
     };
+    // Add the callback function types to the window interface too
+    onTurnstileSuccess: (token: string) => void;
+    onTurnstileError: () => void;
+    onTurnstileExpired: () => void;
   }
 }
+// -----------------------------------------------------------------------
 
 const ContactUsPage = () => {
   const [formData, setFormData] = useState({
@@ -40,6 +48,26 @@ const ContactUsPage = () => {
     companySize: "",
     message: "",
   });
+
+  // --- NEW: Settings State ---
+  const [settings, setSettings] = useState<PublicSettings>({
+    contact_address:
+      "Suite D-05-01, 5th Floor, Block D,\nPlaza Mont Kiara,\n50480 Kuala Lumpur, Malaysia",
+    contact_email: "inquiry@kaizenhrms.com",
+    contact_phone: "+603-62010242",
+    // Default map URL if none provided
+    integration_google_maps_embed:
+      "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3983.72930091868!2d101.64939557528581!3d3.165847553049145!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc48f1965b1f3f%3A0xd37a5feb10a562f9!2sKaiZenHR%20Sdn%20Bhd!5e0!3m2!1sen!2smy!4v1763520954012!5m2!1sen!2smy",
+  });
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const data = await getPublicSettings();
+      setSettings((prev) => ({ ...prev, ...data }));
+    };
+    loadSettings();
+  }, []);
+  // ---------------------------
 
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,11 +94,10 @@ const ContactUsPage = () => {
   }, []);
 
   useEffect(() => {
-    // @ts-ignore
+    // Assign directly without @ts-ignore now that we've updated the interface
     window.onTurnstileSuccess = (token: string) => {
       setCaptchaToken(token);
     };
-    // @ts-ignore
     window.onTurnstileError = () => {
       setCaptchaToken(null);
       setSubmitStatus({
@@ -78,7 +105,6 @@ const ContactUsPage = () => {
         message: "Captcha verification failed. Please try again.",
       });
     };
-    // @ts-ignore
     window.onTurnstileExpired = () => {
       setCaptchaToken(null);
     };
@@ -142,9 +168,16 @@ const ContactUsPage = () => {
         message: "",
       });
 
-      if (window.turnstile && widgetIdRef.current) {
+      // --- 2. FIX: Safe check for window.turnstile ---
+      if (
+        typeof window !== "undefined" &&
+        window.turnstile &&
+        widgetIdRef.current
+      ) {
         // window.turnstile.reset(widgetIdRef.current);
       }
+      // -----------------------------------------------
+
       setCaptchaToken(null);
 
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -232,12 +265,8 @@ const ContactUsPage = () => {
                     <h3 className="text-xl font-bold text-gray-900 mb-2">
                       Our Office Address
                     </h3>
-                    <p className="text-gray-600 leading-relaxed text-base">
-                      Suite D-05-01, 5th Floor, Block D,
-                      <br />
-                      Plaza Mont Kiara,
-                      <br />
-                      50480 Kuala Lumpur, Malaysia
+                    <p className="text-gray-600 leading-relaxed text-base whitespace-pre-line">
+                      {settings.contact_address}
                     </p>
                   </div>
                 </div>
@@ -252,10 +281,10 @@ const ContactUsPage = () => {
                       Email Us
                     </h3>
                     <a
-                      href="mailto:inquiry@kaizenhrms.com"
+                      href={`mailto:${settings.contact_email}`}
                       className="text-gray-600 hover:text-blue-600 font-medium text-base transition-colors block"
                     >
-                      inquiry@kaizenhrms.com
+                      {settings.contact_email}
                     </a>
                   </div>
                 </div>
@@ -270,10 +299,10 @@ const ContactUsPage = () => {
                       Call Us
                     </h3>
                     <a
-                      href="tel:+60362010242"
+                      href={`tel:${settings.contact_phone}`}
                       className="text-gray-600 hover:text-blue-600 font-medium text-base transition-colors block"
                     >
-                      +603-62010242
+                      {settings.contact_phone}
                     </a>
                   </div>
                 </div>
@@ -282,7 +311,7 @@ const ContactUsPage = () => {
               {/* Google Maps Embed - Enhanced Visuals */}
               <div className="relative w-full h-[400px] rounded-3xl overflow-hidden shadow-2xl border-4 border-white ring-1 ring-gray-100">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3983.72930091868!2d101.64939557528581!3d3.165847553049145!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc48f1965b1f3f%3A0xd37a5feb10a562f9!2sKaiZenHR%20Sdn%20Bhd!5e0!3m2!1sen!2smy!4v1763520954012!5m2!1sen!2smy"
+                  src={settings.integration_google_maps_embed}
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}

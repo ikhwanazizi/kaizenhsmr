@@ -1,4 +1,4 @@
-"use client";
+// src/app/(public)/page.tsx
 
 // Import components
 import Navbar from "@/components/layout/Navbar";
@@ -9,7 +9,7 @@ import Award from "@/components/sections/Award";
 import Hero from "@/components/sections/Hero";
 import Trial from "@/components/sections/Trial";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 
 export default function HomePage() {
   return (

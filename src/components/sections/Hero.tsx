@@ -1,8 +1,15 @@
+// src/components/sections/Hero.tsx
 import React from "react";
 import Container from "../layout/Container";
 import { Star } from "lucide-react";
+import { getPublicSettings } from "@/lib/public-settings";
 
-const Hero = () => {
+const Hero = async () => {
+  // Fetch settings
+  const settings = await getPublicSettings();
+  const videoUrl =
+    settings.home_hero_video_id || "https://www.youtube.com/embed/p4-USNtPYrY";
+
   return (
     <div className="pt-16 bg-gradient-to-br from-[#008080] to-[#006666] text-white overflow-hidden relative">
       <div className="absolute inset-0 bg-black opacity-10"></div>
@@ -39,7 +46,7 @@ const Hero = () => {
             <div className="relative z-10 rounded-2xl shadow-2xl overflow-hidden transform">
               <iframe
                 className="w-full aspect-video"
-                src="https://www.youtube.com/embed/p4-USNtPYrY"
+                src={videoUrl}
                 title="KaizenHR Dashboard"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen

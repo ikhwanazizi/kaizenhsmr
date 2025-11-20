@@ -1,8 +1,13 @@
 import React from "react";
 import Container from "../layout/Container";
-import { Award as AwardIcon } from "lucide-react";
+import { getPublicSettings } from "@/lib/public-settings";
 
-const Award = () => {
+const Award = async () => {
+  const settings = await getPublicSettings();
+  const image1 = settings.marketing_award_image_1 || "/apicta.png";
+  const image2 =
+    settings.marketing_award_image_2 || "/Module_Brochure_Kaizen_Draft.png";
+
   return (
     <section className="py-16 bg-gradient-to-r from-blue-50 to-indigo-50">
       <Container>
@@ -11,7 +16,7 @@ const Award = () => {
             {/* First Image - Left Side */}
             <div className="flex items-center justify-center w-60 h-60">
               <img
-                src="/apicta.png"
+                src={image1}
                 alt="msc_apicta"
                 className="w-40 h-40 object-contain"
               />
@@ -39,7 +44,7 @@ const Award = () => {
             {/* Second Image - Right Side */}
             <div className="flex items-center justify-center w-60 h-60">
               <img
-                src="/Module_Brochure_Kaizen_Draft.png"
+                src={image2}
                 alt="msc_apicta award"
                 className="w-full h-full object-contain"
               />
