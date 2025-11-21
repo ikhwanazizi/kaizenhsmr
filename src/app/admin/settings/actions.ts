@@ -68,10 +68,9 @@ export async function getSystemSettings(): Promise<{
     "integration_google_maps_embed",
     "footer_copyright_text",
     "blog_default_author_name",
-    "user_ban_duration_hours",
     "admin_notification_email",
     "email_sender_name",
-    "email_sender_address", // <--- NEW KEY ADDED HERE
+    "email_sender_address",
     "enable_maintenance_mode",
     "enable_public_registration"
   ];

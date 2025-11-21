@@ -1,9 +1,8 @@
-// src/app/admin/users/page.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Users, Shield, UserX } from "lucide-react";
 import CreateUserModal from "@/components/admin/CreateUserModal";
 import ConfirmDeleteModal from "@/components/shared/ConfirmDeleteModal";
 import UpdateUserModal from "@/components/admin/UpdateUserModal";
@@ -50,6 +49,23 @@ const StatusBadge = ({ status }: { status: string | null }) => {
       );
   }
 };
+
+// Stats Card Component
+const StatCard = ({ title, count, icon: Icon, colorClass }: any) => (
+  <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+    <div>
+      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+        {title}
+      </p>
+      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+        {count}
+      </h3>
+    </div>
+    <div className={`p-3 rounded-lg ${colorClass}`}>
+      <Icon className="w-6 h-6" />
+    </div>
+  </div>
+);
 
 export default function UserManagementPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -126,6 +142,19 @@ export default function UserManagementPage() {
 
     initializePage();
   }, [fetchUsers, supabase.auth, supabase, router]);
+
+  // Derived Stats
+  const stats = useMemo(() => {
+    const totalAdmins = users.filter((u) => u.role === "admin").length;
+    const totalSuperAdmins = users.filter(
+      (u) => u.role === "super_admin"
+    ).length;
+    const totalSuspended = users.filter(
+      (u) => u.status === "suspended" || u.status === "inactive"
+    ).length;
+
+    return { totalAdmins, totalSuperAdmins, totalSuspended };
+  }, [users]);
 
   const handleOpenUpdateModal = (user: UserProfile) => {
     setUserToUpdate(user);
@@ -224,7 +253,8 @@ export default function UserManagementPage() {
           <p className="mb-6 text-slate-600 dark:text-slate-400">{error}</p>
           <button
             onClick={() => router.push("/admin/dashboard")}
-            className="w-full px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            // FIXED: Removed conflicting 'focus-visible:outline'
+            className="w-full px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           >
             Go to Dashboard
           </button>
@@ -242,6 +272,28 @@ export default function UserManagementPage() {
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
           Manage admin and super admin users for the platform.
         </p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard
+          title="Total Super Admins"
+          count={stats.totalSuperAdmins}
+          icon={Shield}
+          colorClass="bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300"
+        />
+        <StatCard
+          title="Total Admins"
+          count={stats.totalAdmins}
+          icon={Users}
+          colorClass="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
+        />
+        <StatCard
+          title="Suspended / Inactive"
+          count={stats.totalSuspended}
+          icon={UserX}
+          colorClass="bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-300"
+        />
       </div>
 
       <CreateUserModal
@@ -278,7 +330,8 @@ export default function UserManagementPage() {
         headerActions={
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="inline-flex items-center justify-center px-4 py-2 space-x-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            // FIXED: Removed conflicting 'focus-visible:outline'
+            className="inline-flex items-center justify-center px-4 py-2 space-x-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <PlusCircle size={20} />
             <span>Create New User</span>

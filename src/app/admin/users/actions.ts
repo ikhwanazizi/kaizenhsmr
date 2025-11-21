@@ -57,17 +57,8 @@ async function checkSuperAdminAccess() {
   return { authorized: true, userId: user.id };
 }
 
-async function getBanDuration(supabase: any): Promise<string> {
-  const { data } = await supabase
-    .from("system_settings")
-    .select("value")
-    .eq("key", "user_ban_duration_hours")
-    .single();
-  
-  // Default to 100 years (876000 hours) if not set
-  const hours = data?.value || "876000"; 
-  return `${hours}h`; // Supabase format requires unit, e.g., "24h"
-}
+// Removed dynamic getBanDuration. Using static 100 years now.
+const STATIC_BAN_DURATION = "876000h"; // ~100 years
 
 // Create the new user function
 export async function createUser(formData: FormData) {
@@ -77,7 +68,7 @@ export async function createUser(formData: FormData) {
   }
 
   const supabase = await createAdminClient();
-  // ... (Get formData fields: fullName, email, etc) ...
+  
   const fullName = formData.get("fullName") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -104,11 +95,10 @@ export async function createUser(formData: FormData) {
 
     if (profileError) return { success: false, message: profileError.message };
 
-    // Ban user if not active using dynamic duration
+    // Ban user if not active
     if (status !== "active") {
-      const banDuration = await getBanDuration(supabase);
       await supabase.auth.admin.updateUserById(authData.user.id, {
-        ban_duration: banDuration,
+        ban_duration: STATIC_BAN_DURATION,
       });
     }
 
@@ -153,7 +143,7 @@ export async function deleteUser(userId: string) {
     return { success: false, message: error.message };
   }
 
-  // --- (FIXED) ADD AUDIT LOG ---
+  // Audit Log
   await supabase.from("admin_audit_log").insert({
     admin_id: authCheck.userId,
     action: "user.delete",
@@ -163,7 +153,6 @@ export async function deleteUser(userId: string) {
       deleted_email: userToLog?.email || "unknown",
     },
   });
-  // --- END LOG ---
 
   revalidatePath("/admin/users");
   return { success: true, message: "User deleted successfully!" };
@@ -189,7 +178,7 @@ export async function updateUser(formData: FormData) {
     .eq("id", id)
     .single();
 
-  // ... (Keep Safety Checks) ...
+  // Safety Checks
   if (oldData?.role === "super_admin") {
     const { count } = await supabase
       .from("profiles")
@@ -208,11 +197,10 @@ export async function updateUser(formData: FormData) {
     if (authError) return { success: false, message: `Failed to update auth email: ${authError.message}` };
   }
 
-  // Handle ban/unban with dynamic duration
+  // Handle ban/unban with static 100 years
   if (status === "inactive" || status === "suspended") {
-    const banDuration = await getBanDuration(supabase);
     const { error: banError } = await supabase.auth.admin.updateUserById(id, {
-      ban_duration: banDuration,
+      ban_duration: STATIC_BAN_DURATION,
     });
     if (banError) console.error("Failed to ban user:", banError);
   } else if (status === "active") {
@@ -222,7 +210,7 @@ export async function updateUser(formData: FormData) {
     if (unbanError) console.error("Failed to unban user:", unbanError);
   }
 
-  // Update profile and Audit Log (keep existing code)
+  // Update profile and Audit Log
   const { error: profileError } = await supabase
     .from("profiles")
     .update({ full_name: fullName, email: email, role: role, status: status })
@@ -230,11 +218,12 @@ export async function updateUser(formData: FormData) {
 
   if (profileError) return { success: false, message: profileError.message };
 
-  // ... (Audit log generation code remains same) ...
-  // (Shortened for brevity, assume original audit log code is here)
   const changes: string[] = [];
-  // ... calculate changes ...
-  const message = `Updated user ${email}. Changes: ${changes.join(", ")}`;
+  if (oldData?.role !== role) changes.push(`role: ${oldData?.role} -> ${role}`);
+  if (oldData?.status !== status) changes.push(`status: ${oldData?.status} -> ${status}`);
+  if (oldData?.email !== email) changes.push(`email: ${oldData?.email} -> ${email}`);
+
+  const message = `Updated user ${email}. Changes: ${changes.join(", ") || "Details updated"}`;
 
   await supabase.from("admin_audit_log").insert({
     admin_id: authCheck.userId,
@@ -242,7 +231,7 @@ export async function updateUser(formData: FormData) {
     target_user_id: id,
     details: {
         message: message,
-        changes: { /*...*/ }
+        changes: changes
     }
   });
 
@@ -269,7 +258,6 @@ export async function resetUserPassword(email: string) {
     return { success: false, message: error.message };
   }
 
-  // --- (FIXED) ADD AUDIT LOG ---
   const { data: targetUser } = await supabase
     .from("profiles")
     .select("id")
@@ -285,7 +273,6 @@ export async function resetUserPassword(email: string) {
       email: email,
     },
   });
-  // --- END LOG ---
 
   return { success: true, message: "Password reset link sent successfully!" };
 }
