@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: { headers: request.headers },
   });
 
@@ -53,8 +53,13 @@ export async function middleware(request: NextRequest) {
         .eq("key", "enable_maintenance_mode")
         .single();
 
-      // Fixed: value is jsonb → can be boolean true/false
-      const isMaintenance = setting?.value === true;
+      // Fixed: value is jsonb → can be boolean true/false or string "true"
+      const rawValue = setting?.value;
+      const isMaintenance =
+        rawValue === true ||
+        rawValue === "true" ||
+        rawValue === 1 ||
+        rawValue === "1";
 
       if (isMaintenance && !user) {
         return NextResponse.rewrite(new URL("/maintenance", request.url));
