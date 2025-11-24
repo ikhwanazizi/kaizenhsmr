@@ -1,4 +1,3 @@
-// src/app/admin/profile/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -9,6 +8,7 @@ import { type ProfileData } from "@/types/profile";
 import EditProfileModal from "@/components/admin/EditProfileModal";
 import Toast from "@/components/shared/Toast";
 import { updateProfile } from "./actions";
+import LoadingSpinner from "@/components/shared/LoadingSpinner";
 
 const StatusBadge = ({ status }: { status: string }) => {
   const baseClasses =
@@ -95,7 +95,6 @@ export default function ProfilePage() {
     const fetchProfile = async () => {
       setLoading(true);
 
-      // Get current user
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -105,7 +104,6 @@ export default function ProfilePage() {
         return;
       }
 
-      // Get profile data
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("id, full_name, email, role, status, created_at")
@@ -119,7 +117,6 @@ export default function ProfilePage() {
         return;
       }
 
-      // Get last sign in from auth.users
       const { data: userData, error: userError } = await supabase.rpc(
         "get_user_last_sign_in",
         { user_id: user.id }
@@ -162,15 +159,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-slate-500 dark:text-slate-400">
-          Loading profile...
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner />;
 
   if (error || !profile) {
     return (
@@ -185,7 +174,8 @@ export default function ProfilePage() {
           </p>
           <button
             onClick={() => router.push("/admin/dashboard")}
-            className="w-full px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            // FIXED: Removed redundant 'focus-visible:outline'
+            className="w-full px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           >
             Go to Dashboard
           </button>
@@ -219,9 +209,6 @@ export default function ProfilePage() {
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
             <div className="flex items-center space-x-4">
-              {/* <div className="flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full dark:bg-blue-900/50">
-                <User className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div> */}
               <div>
                 <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
                   {profile.full_name || "N/A"}
@@ -233,7 +220,8 @@ export default function ProfilePage() {
             </div>
             <button
               onClick={() => setIsEditModalOpen(true)}
-              className="inline-flex items-center justify-center px-4 py-2 space-x-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              // FIXED: Removed redundant 'focus-visible:outline'
+              className="inline-flex items-center justify-center px-4 py-2 space-x-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
             >
               <Edit size={16} />
               <span>Edit Profile</span>

@@ -10,6 +10,7 @@ import DataTable, { type Column } from "@/components/shared/DataTable";
 import { type UserProfile } from "@/types/user";
 import { deleteUser } from "./actions";
 import { useRouter } from "next/navigation";
+import LoadingSpinner from "@/components/shared/LoadingSpinner";
 
 const StatusBadge = ({ status }: { status: string | null }) => {
   const baseClasses =
@@ -237,10 +238,7 @@ export default function UserManagementPage() {
     },
   ];
 
-  if (loading)
-    return (
-      <p className="p-4 text-slate-500 dark:text-slate-400">Loading users...</p>
-    );
+  if (loading) return <LoadingSpinner />;
 
   if (error) {
     return (
@@ -253,7 +251,7 @@ export default function UserManagementPage() {
           <p className="mb-6 text-slate-600 dark:text-slate-400">{error}</p>
           <button
             onClick={() => router.push("/admin/dashboard")}
-            // FIXED: Removed conflicting 'focus-visible:outline'
+            // FIXED: Removed redundant 'focus-visible:outline'
             className="w-full px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           >
             Go to Dashboard
@@ -330,7 +328,7 @@ export default function UserManagementPage() {
         headerActions={
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            // FIXED: Removed conflicting 'focus-visible:outline'
+            // FIXED: Removed redundant 'focus-visible:outline'
             className="inline-flex items-center justify-center px-4 py-2 space-x-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <PlusCircle size={20} />

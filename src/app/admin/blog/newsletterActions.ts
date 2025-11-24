@@ -1,4 +1,3 @@
-// src/app/admin/blog/newsletterActions.ts
 "use server";
 
 import { createServerClient } from "@supabase/ssr";
@@ -10,7 +9,7 @@ import { postNewsletterTemplate } from "@/lib/email-templates/post-newsletter-te
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ... (helper functions: generatePreviewFromBlocks, createClient, createAdminClient... remain unchanged) ...
+// --- Helper Functions ---
 
 function generatePreviewFromBlocks(blocks: any[]): string | null {
   if (!blocks || blocks.length === 0) return null;
@@ -63,6 +62,27 @@ async function createAdminClient() {
   );
 }
 
+// NEW: Helper to fetch system setting safely
+async function getSystemSetting(supabase: any, key: string, fallback: string) {
+  const { data } = await supabase
+    .from("system_settings")
+    .select("value")
+    .eq("key", key)
+    .single();
+
+  if (!data?.value) return fallback;
+
+  try {
+    // Settings are often stored as JSON strings
+    const parsed = JSON.parse(data.value);
+    return typeof parsed === "string" ? parsed : fallback;
+  } catch {
+    return data.value || fallback;
+  }
+}
+
+// --- Main Actions ---
+
 export async function getNewsletterModalData(postId: string) {
   try {
     const supabase = await createClient();
@@ -70,39 +90,55 @@ export async function getNewsletterModalData(postId: string) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    
     if (!user || !user.email) {
       throw new Error("Not authenticated");
     }
+
+    // MODIFIED: Fetch admin email from settings, fallback to login email
+    const configuredAdminEmail = await getSystemSetting(
+      supabase,
+      "admin_notification_email",
+      user.email
+    );
+
     const { data: post, error: postError } = await supabase
       .from("posts")
       .select("title, excerpt, featured_image")
       .eq("id", postId)
       .single();
+
     if (postError) {
       throw new Error(`Post not found: ${postError.message}`);
     }
+
     const { data: postBlocks, error: blocksError } = await supabase
       .from("post_blocks")
       .select("type, content")
       .eq("post_id", postId)
       .order("order_index", { ascending: true });
+
     if (blocksError) {
       throw new Error(`Could not fetch post content: ${blocksError.message}`);
     }
+
     const postPreview =
       post.excerpt ||
       generatePreviewFromBlocks(postBlocks) ||
       "Read the full article on our website.";
+
     const { count, error: countError } = await supabaseAdmin
       .from("newsletter_subscribers")
       .select("*", { count: "exact", head: true })
       .eq("status", "subscribed");
+
     if (countError) {
       throw new Error(`Could not count subscribers: ${countError.message}`);
     }
+
     return {
       success: true,
-      adminEmail: user.email,
+      adminEmail: configuredAdminEmail, // Uses value from settings
       postTitle: post.title || "Untitled Post",
       postPreview: postPreview,
       postImage: post.featured_image,
@@ -122,21 +158,26 @@ export async function sendTestNewsletter(postId: string, testEmail: string) {
       .select("title, excerpt, featured_image, slug, category")
       .eq("id", postId)
       .single();
+
     if (postError || !post) {
       throw new Error("Post not found.");
     }
+
     const { data: postBlocks, error: blocksError } = await supabase
       .from("post_blocks")
       .select("type, content")
       .eq("post_id", postId)
       .order("order_index", { ascending: true });
+
     if (blocksError) {
       throw new Error("Could not fetch post content.");
     }
+
     const postPreview =
       post.excerpt ||
       generatePreviewFromBlocks(postBlocks) ||
       "Read the full article on our website.";
+
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kaizenhrms.com";
     const postPath =
       post.category === "blog"
@@ -144,9 +185,10 @@ export async function sendTestNewsletter(postId: string, testEmail: string) {
         : "company/developments";
     const readMoreUrl = `${siteUrl}/${postPath}/${post.slug}`;
     const unsubscribeUrl = `${siteUrl}/newsletter/unsubscribe?token=test-token`;
+
     const { error } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL!,
-      to: [testEmail],
+      to: [testEmail], // Uses the email passed from the modal
       subject: `[TEST] ${post.title}`,
       html: postNewsletterTemplate({
         postTitle: post.title || "Untitled Post",
@@ -156,6 +198,7 @@ export async function sendTestNewsletter(postId: string, testEmail: string) {
         unsubscribeUrl: unsubscribeUrl,
       }),
     });
+
     if (error) {
       throw new Error(error.message);
     }
@@ -236,9 +279,9 @@ export async function scheduleNewsletter(postId: string) {
         preview_text: postPreview,
         sent_by: user.id,
         total_recipients: subscribers.length,
-        status: "scheduled", // <-- Set status to 'scheduled'
-        scheduled_at: new Date().toISOString(), // <-- Set schedule time
-        queued_count: subscribers.length, // <-- All are queued initially
+        status: "scheduled",
+        scheduled_at: new Date().toISOString(),
+        queued_count: subscribers.length,
         sent_count: 0,
       })
       .select("id")
@@ -255,7 +298,7 @@ export async function scheduleNewsletter(postId: string) {
       campaign_id: campaign.id,
       subscriber_id: sub.id,
       email: sub.email,
-      status: "queued", // <-- All are 'queued'
+      status: "queued",
     }));
 
     if (logEntries.length > 0) {
@@ -274,7 +317,6 @@ export async function scheduleNewsletter(postId: string) {
     }
 
     // 7. --- Mark the post as having a newsletter sent/scheduled ---
-    // This prevents it from being sent again
     await supabase
       .from("posts")
       .update({ newsletter_sent_at: new Date().toISOString() })
@@ -290,11 +332,6 @@ export async function scheduleNewsletter(postId: string) {
   }
 }
 
-/**
- * NEW: This is the internal function to be run by a cron job.
- * It finds a queued campaign and sends a batch of emails
- * according to the remaining daily quota.
- */
 export async function processNewsletterQueue() {
   console.log("CRON: processNewsletterQueue started...");
   const supabaseAdmin = await createAdminClient();
@@ -329,7 +366,6 @@ export async function processNewsletterQueue() {
       return { success: true, message: "No campaigns to process." };
     }
 
-    // Mark as 'sending' to prevent concurrent runs
     if (campaign.status === "scheduled") {
       await supabaseAdmin
         .from("newsletter_campaigns")
@@ -383,7 +419,6 @@ export async function processNewsletterQueue() {
     const readMoreUrl = `${siteUrl}/${postPath}/${post.slug}`;
 
     const sendPromises = batch.map(async (recipient) => {
-      // ✅ --- FIX: Improved token logic ---
       const { data: sub, error: subError } = await supabaseAdmin
         .from("newsletter_subscribers")
         .select("unsubscribe_token")
@@ -392,7 +427,6 @@ export async function processNewsletterQueue() {
       
       if (subError || !sub?.unsubscribe_token) {
         console.error(`CRON: Skipping ${recipient.email}, no unsubscribe token found.`);
-        // Return a structured error so it can be logged as 'failed'
         return Promise.reject({
           message: "Unsubscribe token not found",
           log_id: recipient.id, 
@@ -400,7 +434,6 @@ export async function processNewsletterQueue() {
       }
       
       const unsubscribeUrl = `${siteUrl}/api/newsletter/unsubscribe?id=${sub.unsubscribe_token}`;
-      // ✅ --- END FIX ---
 
       return resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL!,
@@ -428,7 +461,6 @@ export async function processNewsletterQueue() {
 
     results.forEach(result => {
       if (result.status === 'fulfilled' && !result.value.error) {
-        // Success
         successfulSends++;
         updateLogPromises.push(
           (async () => {
@@ -443,12 +475,9 @@ export async function processNewsletterQueue() {
           })()
         );
       } else {
-        // Failure
         failedSends++;
-         // ✅ --- FIX: Get log_id from our custom rejection ---
         const error = (result as any).reason || (result as any).value?.error;
         const logId = (result as any).reason?.log_id || (result as any).value?.log_id;
-        // ✅ --- END FIX ---
 
         updateLogPromises.push(
           (async () => {
@@ -458,7 +487,7 @@ export async function processNewsletterQueue() {
                 status: "failed",
                 error_message: error?.message || "Send failed",
               })
-              .eq("id", logId) // <-- Use the correct logId
+              .eq("id", logId)
               .select();
           })()
         );
