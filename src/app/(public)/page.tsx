@@ -1,6 +1,4 @@
 // src/app/(public)/page.tsx
-
-// Import components
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import HROffering from "@/components/sections/HROffering";
@@ -9,30 +7,19 @@ import Award from "@/components/sections/Award";
 import Hero from "@/components/sections/Hero";
 import Trial from "@/components/sections/Trial";
 
-import React from "react";
+// ADD THESE
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Navbar */}
       <Navbar />
-
-      {/* Hero Section - Enhanced */}
       <Hero />
-
-      {/* Award Section */}
       <Award />
-
-      {/* Trial Section */}
       <Trial />
-
-      {/* HR Solutions Section */}
       <HROffering />
-
-      {/* Why Choose Kaizen Section */}
       <WhyChooseKaizen />
-
-      {/* Footer */}
       <Footer />
     </div>
   );

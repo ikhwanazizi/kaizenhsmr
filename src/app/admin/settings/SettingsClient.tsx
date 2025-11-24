@@ -1,4 +1,3 @@
-// src/app/admin/settings/SettingsClient.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -19,6 +18,7 @@ import {
   Trash2,
   ToggleLeft,
   Mail,
+  ShieldAlert,
   FileText,
 } from "lucide-react";
 import Toast from "@/components/shared/Toast";
@@ -45,6 +45,7 @@ const CATEGORIES: Category[] = [
   { id: "general", label: "General System", icon: Layout },
   { id: "features", label: "Feature Toggles", icon: ToggleLeft },
   { id: "email_config", label: "Email Configuration", icon: Mail },
+  { id: "user_security", label: "User & Security", icon: ShieldAlert },
   { id: "blog_config", label: "Blog Settings", icon: FileText },
   { id: "contact", label: "Contact & Company", icon: Globe },
   { id: "social", label: "Social & Apps", icon: Share2 },
@@ -82,7 +83,8 @@ const FACTORY_DEFAULTS: SystemSettings = {
   enable_public_registration: "true",
   admin_notification_email: "kaizenhrdev@kaizenhr.my",
   email_sender_name: "KaizenHR",
-  email_sender_address: "onboarding@resend.dev",
+  email_sender_address: "onboarding@resend.dev", // Default free tier
+  user_ban_duration_hours: "876000",
   blog_default_author_name: "KaizenHR Team",
 };
 
@@ -95,6 +97,7 @@ const CATEGORY_KEYS: Record<string, string[]> = {
     "email_sender_name",
     "email_sender_address",
   ],
+  user_security: ["user_ban_duration_hours"],
   blog_config: ["blog_default_author_name"],
   contact: [
     "company_slogan",
@@ -427,6 +430,22 @@ export default function SettingsClient({
               </>
             )}
 
+            {activeCategory === "user_security" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  User Ban Duration (Hours)
+                </label>
+                <input
+                  type="number"
+                  value={settings.user_ban_duration_hours || ""}
+                  onChange={(e) =>
+                    handleChange("user_ban_duration_hours", e.target.value)
+                  }
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+            )}
+
             {activeCategory === "blog_config" && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -587,6 +606,9 @@ export default function SettingsClient({
                         }
                         className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                       />
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        You need to add a link to make sure the icon appears.
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -600,6 +622,9 @@ export default function SettingsClient({
                         }
                         className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-600 dark:text-white"
                       />
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        You need to add a link to make sure the icon appears.
+                      </p>
                     </div>
                   </div>
                 </div>

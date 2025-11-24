@@ -1,15 +1,13 @@
+// src/middleware.ts
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function middleware(request: NextRequest) {
-  // 1. Create an initial response
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   });
 
-  // 2. Create the Supabase client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -19,56 +17,58 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+          request.cookies.set({ name, value, ...options });
+          response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
+          request.cookies.set({ name, value: "", ...options });
+          response.cookies.set({ name, value: "", ...options });
         },
       },
     }
   );
 
-  // 3. THE FIX: Use getUser() instead of getSession()
-  // This validates the auth token with Supabase's Auth Server.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 4. Protect Admin Routes
-  if (request.nextUrl.pathname.startsWith("/admin") && !user) {
+  const path = request.nextUrl.pathname;
+
+  if (
+    !path.startsWith("/admin") &&
+    !path.startsWith("/login") &&
+    !path.startsWith("/api") &&
+    path !== "/maintenance" &&
+    !path.startsWith("/_next")
+  ) {
+    try {
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      const { data: setting } = await adminClient
+        .from("system_settings")
+        .select("value")
+        .eq("key", "enable_maintenance_mode")
+        .single();
+
+      // Fixed: value is jsonb → can be boolean true/false
+      const isMaintenance = setting?.value === true;
+
+      if (isMaintenance && !user) {
+        return NextResponse.rewrite(new URL("/maintenance", request.url));
+      }
+    } catch (error) {
+      console.error("Middleware Maintenance Check Error:", error);
+    }
+  }
+
+  if (path.startsWith("/admin") && !user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // 5. Redirect Logged-in Users away from Login page
-  if (request.nextUrl.pathname === "/login" && user) {
+  if (path === "/login" && user) {
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
 
@@ -77,13 +77,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - api (API routes - let them handle their own auth if needed, or add them here)
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
