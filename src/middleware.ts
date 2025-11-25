@@ -96,20 +96,21 @@ export async function middleware(req: NextRequest) {
 
   // Refresh session
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  data: { user },
+  error: authError,
+} = await supabase.auth.getUser();
 
   // 3. Admin Route Protection
-  if (!session && pathname.startsWith("/admin")) {
+  if (!user && pathname.startsWith("/admin")) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
   // 4. Active Status & Role Checks
-  if (session && pathname.startsWith("/admin")) {
+  if (user && pathname.startsWith("/admin")) {
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("status, role")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single();
 
     if (error || !profile || profile.status !== "active") {
@@ -129,11 +130,11 @@ export async function middleware(req: NextRequest) {
   }
 
   // 5. Redirect logged-in users away from login page
-  if (session && pathname === "/login") {
+  if (user && pathname === "/login") {
     const { data: profile } = await supabase
       .from("profiles")
       .select("status")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .single();
 
     if (profile?.status === "active") {
