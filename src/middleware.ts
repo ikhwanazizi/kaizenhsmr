@@ -96,9 +96,9 @@ export async function middleware(req: NextRequest) {
 
   // Refresh session
   const {
-  data: { user },
-  error: authError,
-} = await supabase.auth.getUser();
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
   // 3. Admin Route Protection
   if (!user && pathname.startsWith("/admin")) {
