@@ -1,89 +1,151 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
-export async function middleware(request: NextRequest) {
-  // 1. Create an initial response
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
+  const { pathname } = req.nextUrl;
+
+  // 1. Maintenance Mode Check (Uses Service Role to bypass RLS)
+  if (
+    !pathname.startsWith("/admin") &&
+    !pathname.startsWith("/login") &&
+    !pathname.startsWith("/_next") &&
+    !pathname.startsWith("/static") &&
+    !pathname.includes(".") // Exclude images/css/etc
+  ) {
+    try {
+      const adminClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+          auth: { persistSession: false },
+        }
+      );
+
+      const { data: setting } = await adminClient
+        .from("system_settings")
+        .select("value")
+        .eq("key", "enable_maintenance_mode")
+        .single();
+
+      // Clean the value
+      const isMaintenance =
+        setting?.value === "true" || setting?.value === true || setting?.value === "\"true\"";
+
+      if (isMaintenance) {
+        return new NextResponse(
+          `<!DOCTYPE html>
+          <html>
+            <head>
+              <title>Maintenance</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; height: 100vh; justify-content: center; align-items: center; flex-direction: column; background: #fff; color: #111; text-align: center; padding: 20px; }
+                h1 { margin-bottom: 1rem; font-size: 2rem; font-weight: 700; }
+                p { color: #666; font-size: 1.1rem; }
+              </style>
+            </head>
+            <body>
+              <h1>We'll be right back.</h1>
+              <p>The system is currently undergoing scheduled maintenance.</p>
+            </body>
+          </html>`,
+          {
+            status: 503,
+            headers: { "content-type": "text/html" },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Maintenance check failed:", error);
+    }
+  }
+
+  // 2. Standard User Authentication
+  let supabaseResponse = NextResponse.next({
+    request: req,
   });
 
-  // 2. Create the Supabase client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+        getAll() {
+          return req.cookies.getAll();
         },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
+        setAll(cookiesToSet) {
+          // Set cookies on the request
+          cookiesToSet.forEach(({ name, value, options }) =>
+            req.cookies.set(name, value)
+          );
+          
+          // FIX: Iterate and set individually instead of using setAll if types are missing
+          supabaseResponse = NextResponse.next({
+            request: req,
           });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
+          
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
   );
 
-  // 3. THE FIX: Use getUser() instead of getSession()
-  // This validates the auth token with Supabase's Auth Server.
+  // Refresh session
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  // 4. Protect Admin Routes
-  if (request.nextUrl.pathname.startsWith("/admin") && !user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  // 3. Admin Route Protection
+  if (!session && pathname.startsWith("/admin")) {
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 5. Redirect Logged-in Users away from Login page
-  if (request.nextUrl.pathname === "/login" && user) {
-    return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+  // 4. Active Status & Role Checks
+  if (session && pathname.startsWith("/admin")) {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("status, role")
+      .eq("id", session.user.id)
+      .single();
+
+    if (error || !profile || profile.status !== "active") {
+      await supabase.auth.signOut();
+      const redirectUrl = new URL("/login", req.url);
+      if (profile?.status === "suspended") redirectUrl.searchParams.set("error", "suspended");
+      else if (profile?.status === "inactive") redirectUrl.searchParams.set("error", "inactive");
+      
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    if (pathname.startsWith("/admin/users")) {
+      if (profile.role !== "super_admin") {
+        return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+      }
+    }
   }
 
-  return response;
+  // 5. Redirect logged-in users away from login page
+  if (session && pathname === "/login") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", session.user.id)
+      .single();
+
+    if (profile?.status === "active") {
+      return NextResponse.redirect(new URL("/admin/dashboard", req.url));
+    }
+  }
+
+  return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - api (API routes - let them handle their own auth if needed, or add them here)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
