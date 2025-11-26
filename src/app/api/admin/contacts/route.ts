@@ -69,15 +69,7 @@ export async function GET(req: NextRequest) {
 
     const { data: contacts, error } = await supabaseAdmin
       .from("contacts")
-      .select(
-        `
-        *,
-        profiles:replied_by (
-          full_name,
-          email
-        )
-      `
-      )
+      .select("*") 
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -107,7 +99,6 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if user is super_admin
     if (authData.profile.role !== "super_admin") {
       return NextResponse.json(
         { error: "Only super admins can delete contacts" },
@@ -125,6 +116,15 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    // --- (FIXED) ADD AUDIT LOG ---
+    // Get full contact details *before* deleting for a better log message
+    const { data: contactToLog } = await supabaseAdmin
+      .from("contacts")
+      .select("full_name, business_email, company") // Get all the details
+      .eq("id", id)
+      .single();
+    // --- END LOG ---
+
     const { error } = await supabaseAdmin
       .from("contacts")
       .delete()
@@ -137,6 +137,23 @@ export async function DELETE(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // --- (FIXED) ADD AUDIT LOG ---
+    // Create the new descriptive message
+    const message = `Deleted contact: ${contactToLog?.full_name || "Unknown"} from ${contactToLog?.company || "Unknown"} (${contactToLog?.business_email || id})`;
+
+    await supabaseAdmin.from("admin_audit_log").insert({
+      admin_id: authData.user.id,
+      action: "contact.delete",
+      details: {
+        message: message, // Use the new descriptive message
+        contact_id: id,
+        deleted_name: contactToLog?.full_name,
+        deleted_email: contactToLog?.business_email,
+        deleted_company: contactToLog?.company,
+      },
+    });
+    // --- END LOG ---
 
     return NextResponse.json(
       { message: "Contact deleted successfully" },

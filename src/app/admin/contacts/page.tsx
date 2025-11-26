@@ -1,13 +1,27 @@
-// src/app/admin/contacts/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import DataTable, { type Column } from "@/components/shared/DataTable";
+import {
+  Building2,
+  Download,
+  Filter,
+  CheckCircle2,
+  Clock,
+  Inbox,
+  MessageSquare,
+  ChevronDown,
+  Eye,
+  Trash2,
+} from "lucide-react";
 import ContactDetailModal from "@/components/admin/ContactDetailModal";
-import { Eye, Trash2, Download, AlertCircle } from "lucide-react";
+import ConfirmDeleteModal from "@/components/shared/ConfirmDeleteModal";
+import Toast from "@/components/shared/Toast";
+import LoadingSpinner from "@/components/shared/LoadingSpinner";
 
-type Contact = {
+// --- Types ---
+type ContactSubmission = {
   id: string;
   full_name: string;
   business_email: string;
@@ -15,51 +29,111 @@ type Contact = {
   company: string;
   company_size: string;
   message: string;
-  status: string;
+  status: "new" | "contacted" | "replied" | "closed";
   created_at: string;
-  reply_note?: string | null;
-  replied_at?: string | null;
-  replied_by?: string | null;
-  profiles?: {
-    full_name: string;
-    email: string;
+  reply_note?: string;
+  replied_at?: string;
+  replied_by?: string;
+};
+
+// --- Helper Components ---
+
+const StatCard = ({ title, count, icon: Icon, colorClass }: any) => (
+  <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-4">
+    <div className={`p-3 rounded-lg flex-shrink-0 ${colorClass}`}>
+      <Icon className="w-6 h-6" />
+    </div>
+    <div>
+      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+        {title}
+      </p>
+      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+        {count}
+      </h3>
+    </div>
+  </div>
+);
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const styles: Record<string, string> = {
+    new: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+    contacted:
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+    replied:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    closed: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
   };
+
+  const displayStatus = status?.toLowerCase() || "new";
+
+  return (
+    <span
+      className={`px-2.5 py-1 rounded-full text-xs font-medium ${styles[displayStatus] || "bg-gray-100 text-gray-700"}`}
+    >
+      {displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1)}
+    </span>
+  );
 };
 
 export default function ContactsPage() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contacts, setContacts] = useState<ContactSubmission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedContact, setSelectedContact] =
+    useState<ContactSubmission | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [userRole, setUserRole] = useState<"admin" | "super_admin" | null>(
     null
   );
-  const [isExporting, setIsExporting] = useState(false);
+
+  // -- Delete Modal State --
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] =
+    useState<ContactSubmission | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Toast State
+  const [toastState, setToastState] = useState<{
+    show: boolean;
+    message: string;
+    type: "success" | "error";
+  }>({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sizeFilter, setSizeFilter] = useState<string>("all");
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Fetch user role
   useEffect(() => {
-    const fetchUserRole = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-        setUserRole(profile?.role || null);
-      }
-    };
+    fetchContacts();
     fetchUserRole();
-  }, [supabase]);
+  }, []);
 
-  // Fetch contacts
+  const showToast = (message: string, type: "success" | "error") => {
+    setToastState({ show: true, message, type });
+  };
+
+  const fetchUserRole = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      setUserRole(profile?.role || null);
+    }
+  };
+
   const fetchContacts = async () => {
     setLoading(true);
     try {
@@ -70,312 +144,337 @@ export default function ContactsPage() {
         setContacts(data.contacts || []);
       } else {
         console.error("Failed to fetch contacts:", data.error);
+        showToast("Failed to load contacts", "error");
       }
     } catch (error) {
       console.error("Error fetching contacts:", error);
+      showToast("An unexpected error occurred", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchContacts();
-  }, []);
-
-  // Handle view contact
-  const handleView = (contact: Contact) => {
-    setSelectedContact(contact);
-    setIsModalOpen(true);
+  const handleOpenDeleteModal = (contact: ContactSubmission) => {
+    setContactToDelete(contact);
+    setIsDeleteModalOpen(true);
   };
 
-  // Handle delete contact
-  const handleDelete = async (contact: Contact) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete the contact from ${contact.company}?`
-      )
-    ) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!contactToDelete) return;
 
+    setIsDeleting(true);
     try {
-      const response = await fetch(`/api/admin/contacts?id=${contact.id}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `/api/admin/contacts?id=${contactToDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       const data = await response.json();
 
       if (response.ok) {
-        alert("Contact deleted successfully");
-        fetchContacts(); // Refresh the list
+        showToast("Contact deleted successfully", "success");
+        fetchContacts();
       } else {
-        alert(data.error || "Failed to delete contact");
+        showToast(data.error || "Failed to delete contact", "error");
       }
     } catch (error) {
       console.error("Error deleting contact:", error);
-      alert("An error occurred while deleting the contact");
-    }
-  };
-
-  // Handle CSV export
-  const handleExport = async () => {
-    setIsExporting(true);
-    try {
-      const response = await fetch("/api/admin/contacts/export");
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `contacts-export-${new Date().toISOString().split("T")[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert("Failed to export contacts");
-      }
-    } catch (error) {
-      console.error("Error exporting contacts:", error);
-      alert("An error occurred while exporting");
+      showToast("An error occurred while deleting", "error");
     } finally {
-      setIsExporting(false);
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+      setContactToDelete(null);
     }
   };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-MY", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+  const uniqueSizes = useMemo(() => {
+    const sizes = new Set(contacts.map((c) => c.company_size).filter(Boolean));
+    return Array.from(sizes).sort();
+  }, [contacts]);
+
+  const stats = useMemo(() => {
+    const total = contacts.length;
+    const newCount = contacts.filter((c) => c.status === "new").length;
+    const contacted = contacts.filter((c) => c.status === "contacted").length;
+    const replied = contacts.filter((c) => c.status === "replied").length;
+
+    return { total, newCount, contacted, replied };
+  }, [contacts]);
+
+  const filteredData = useMemo(() => {
+    return contacts.filter((item) => {
+      const matchStatus =
+        statusFilter === "all" || item.status === statusFilter;
+      const matchSize =
+        sizeFilter === "all" || item.company_size === sizeFilter;
+      return matchStatus && matchSize;
     });
+  }, [contacts, statusFilter, sizeFilter]);
+
+  const handleExport = () => {
+    if (contacts.length === 0) return showToast("No data to export", "error");
+
+    const csvContent = [
+      ["Date", "Name", "Email", "Company", "Size", "Status", "Message"],
+      ...filteredData.map((c) => [
+        new Date(c.created_at).toLocaleDateString(),
+        `"${c.full_name}"`,
+        c.business_email,
+        `"${c.company}"`,
+        `"${c.company_size}"`,
+        c.status,
+        `"${c.message?.replace(/"/g, '""') || ""}"`,
+      ]),
+    ]
+      .map((e) => e.join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `contacts_export_${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
   };
 
-  // Status badge component
-  const StatusBadge = ({ status }: { status: string }) => {
-    const statusConfig = {
-      new: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-      contacted:
-        "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-      replied:
-        "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-      closed:
-        "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
-    };
-
-    return (
-      <span
-        className={`px-2 py-1 text-xs font-semibold rounded-full ${
-          statusConfig[status as keyof typeof statusConfig] || statusConfig.new
-        }`}
-      >
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
-
-  // Define table columns
-  const columns: Column<Contact>[] = [
+  const columns: Column<ContactSubmission>[] = [
     {
       key: "full_name",
-      label: "Full Name",
+      label: "Contact Person",
       sortable: true,
+      render: (row) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-slate-900 dark:text-white">
+            {row.full_name}
+          </span>
+          <span className="text-xs text-slate-500">{row.business_email}</span>
+        </div>
+      ),
     },
     {
       key: "company",
       label: "Company",
       sortable: true,
-    },
-    {
-      key: "business_email",
-      label: "Email",
-      sortable: true,
-      render: (contact) => (
-        <a
-          href={`mailto:${contact.business_email}`}
-          className="text-blue-600 hover:underline dark:text-blue-400"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {contact.business_email}
-        </a>
-      ),
-    },
-    {
-      key: "contact_number",
-      label: "Phone",
-      render: (contact) => (
-        <a
-          href={`tel:${contact.contact_number}`}
-          className="hover:text-blue-600 dark:hover:text-blue-400"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {contact.contact_number}
-        </a>
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <Building2 size={14} className="text-slate-400" />
+          <span>{row.company}</span>
+        </div>
       ),
     },
     {
       key: "company_size",
       label: "Size",
       sortable: true,
+      render: (row) => (
+        <span className="text-xs bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">
+          {row.company_size}
+        </span>
+      ),
     },
     {
       key: "status",
       label: "Status",
       sortable: true,
-      render: (contact) => <StatusBadge status={contact.status} />,
+      render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: "created_at",
-      label: "Submitted",
+      label: "Date",
       sortable: true,
-      render: (contact) => formatDate(contact.created_at),
+      render: (row) => (
+        <span className="text-slate-500 whitespace-nowrap">
+          {new Date(row.created_at).toLocaleDateString("en-MY", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })}
+        </span>
+      ),
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-          <p className="text-gray-600 dark:text-gray-400">
-            Loading contacts...
-          </p>
-        </div>
+  const actions = (contact: ContactSubmission) => (
+    <div className="flex items-center justify-end gap-2">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedContact(contact);
+          setIsDetailOpen(true);
+        }}
+        className="p-2 text-blue-600 transition-colors rounded hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+        title="View details"
+      >
+        <Eye size={18} />
+      </button>
+      {userRole === "super_admin" && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenDeleteModal(contact);
+          }}
+          className="p-2 text-red-600 transition-colors rounded hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+          title="Delete contact"
+        >
+          <Trash2 size={18} />
+        </button>
+      )}
+    </div>
+  );
+
+  const filterControls = (
+    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+      <div className="relative">
+        <Filter
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          size={16}
+        />
+        <ChevronDown
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+          size={16}
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-full sm:w-40 pl-9 pr-10 py-2 text-sm border rounded-lg appearance-none bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+        >
+          <option value="all">All Status</option>
+          <option value="new">New</option>
+          <option value="contacted">Contacted</option>
+          <option value="replied">Replied</option>
+          <option value="closed">Closed</option>
+        </select>
       </div>
-    );
+
+      <div className="relative">
+        <Building2
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          size={16}
+        />
+        <ChevronDown
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+          size={16}
+        />
+        <select
+          value={sizeFilter}
+          onChange={(e) => setSizeFilter(e.target.value)}
+          className="w-full sm:w-48 pl-9 pr-10 py-2 text-sm border rounded-lg appearance-none bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+        >
+          <option value="all">All Sizes</option>
+          {uniqueSizes.map((size) => (
+            <option key={size} value={size}>
+              {size}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
+  if (loading) {
+    return <LoadingSpinner />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-            Contact Submissions
-          </h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            Manage all contact form submissions from your website
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+          Contact Submissions
+        </h1>
+        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+          Manage and track incoming inquiries from the website.
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="p-4 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            Total Contacts
-          </div>
-          <div className="mt-1 text-2xl font-bold text-gray-800 dark:text-white">
-            {contacts.length}
-          </div>
-        </div>
-        <div className="p-4 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            New
-          </div>
-          <div className="mt-1 text-2xl font-bold text-yellow-600">
-            {contacts.filter((c) => c.status === "new").length}
-          </div>
-        </div>
-        <div className="p-4 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            Contacted
-          </div>
-          <div className="mt-1 text-2xl font-bold text-blue-600">
-            {contacts.filter((c) => c.status === "contacted").length}
-          </div>
-        </div>
-        <div className="p-4 bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
-          <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            Replied
-          </div>
-          <div className="mt-1 text-2xl font-bold text-green-600">
-            {contacts.filter((c) => c.status === "replied").length}
-          </div>
-        </div>
+      {toastState.show && (
+        <Toast
+          message={toastState.message}
+          type={toastState.type}
+          onClose={() => setToastState((prev) => ({ ...prev, show: false }))}
+        />
+      )}
+
+      {/* Info Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Inquiries"
+          count={stats.total}
+          icon={Inbox}
+          colorClass="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
+        />
+        <StatCard
+          title="New / Unread"
+          count={stats.newCount}
+          icon={Clock}
+          colorClass="bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300"
+        />
+        <StatCard
+          title="Contacted"
+          count={stats.contacted}
+          icon={MessageSquare}
+          colorClass="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
+        />
+        <StatCard
+          title="Replied"
+          count={stats.replied}
+          icon={CheckCircle2}
+          colorClass="bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-300"
+        />
       </div>
 
-      {/* Data Table */}
       <DataTable
-        data={contacts}
+        data={filteredData}
         columns={columns}
         searchable={true}
-        searchKeys={[
-          "full_name",
-          "company",
-          "business_email",
-          "contact_number",
-        ]}
+        searchKeys={["full_name", "business_email", "company"]}
         pagination={true}
         itemsPerPage={10}
-        onRowClick={handleView}
-        actions={(contact) => (
-          <>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleView(contact);
-              }}
-              className="p-2 text-blue-600 transition-colors rounded hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
-              title="View details"
-            >
-              <Eye size={18} />
-            </button>
-            {userRole === "super_admin" && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(contact);
-                }}
-                className="p-2 text-red-600 transition-colors rounded hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                title="Delete contact"
-              >
-                <Trash2 size={18} />
-              </button>
-            )}
-          </>
-        )}
-        emptyMessage="No contacts found"
+        actions={actions}
+        filterControls={filterControls}
         headerActions={
           <button
             onClick={handleExport}
-            disabled={isExporting || contacts.length === 0}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+            style={{ backgroundColor: "#00A63D" }}
+            onMouseOver={(e) =>
+              (e.currentTarget.style.backgroundColor = "#008e33")
+            }
+            onMouseOut={(e) =>
+              (e.currentTarget.style.backgroundColor = "#00A63D")
+            }
           >
             <Download size={16} />
-            {isExporting ? "Exporting..." : "Export CSV"}
+            Export CSV
           </button>
         }
+        emptyMessage="No contact submissions found."
       />
 
-      {/* Info Card */}
-      {contacts.length === 0 && (
-        <div className="p-6 text-center bg-white border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
-          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-          <h3 className="mb-2 text-lg font-semibold text-gray-800 dark:text-white">
-            No contacts yet
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">
-            Contact form submissions will appear here once users start reaching
-            out.
-          </p>
-        </div>
-      )}
-
-      {/* Contact Detail Modal */}
       <ContactDetailModal
-        contact={selectedContact}
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedContact(null);
-        }}
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        contact={selectedContact as any}
         userRole={userRole}
+        onStatusChange={(id, status) => {
+          setContacts(
+            contacts.map((c) =>
+              c.id === id ? { ...c, status: status as any } : c
+            )
+          );
+          fetchContacts();
+        }}
         onRefresh={fetchContacts}
+      />
+
+      {/* --- NEW: Delete Confirmation Modal --- */}
+      <ConfirmDeleteModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Contact"
+        message={`Are you sure you want to delete the inquiry from ${contactToDelete?.full_name}? This action cannot be undone.`}
+        isDeleting={isDeleting}
       />
     </div>
   );

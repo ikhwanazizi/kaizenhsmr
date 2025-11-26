@@ -21,10 +21,12 @@ import {
   Newspaper,
   CheckSquare,
   Phone,
+  BookDown, // <-- CHANGED ICON
 } from "lucide-react";
 
-// HRMS menu
+// HRMS menu (No changes)
 export const hrmsSubmenus = [
+  // ... (all 20 modules remain the same)
   {
     icon: Users,
     name: "Personnel Hub",
@@ -147,19 +149,13 @@ export const hrmsSubmenus = [
   },
 ];
 
-// Resources menu
+// Resources menu (MODIFIED)
 export const resourcesSubmenus = [
   {
-    icon: BookOpen,
-    name: "Labour Law",
-    description: "Labour law and latest statutory updates affecting HR",
-    path: "/resources/labour-law",
-  },
-  {
-    icon: Newspaper,
-    name: "Blog & Articles",
-    description: "Stay informed with HR news and expert insights",
-    path: "/resources/blog-articles",
+    icon: BookDown, // <-- 1. UPDATED ICON
+    name: "Brochure",
+    description: "Download our official product brochure.",
+    path: "/Module Brochure Kaizen REV.2.pdf", // <-- 2. UPDATED PATH (points to public folder)
   },
   {
     icon: CheckSquare,
@@ -169,25 +165,13 @@ export const resourcesSubmenus = [
   },
 ];
 
-// Company menu
+// Company menu (MODIFIED - no change from last time)
 export const companySubmenus = [
   {
     icon: Building2,
     name: "About Us",
     description: "Award-winning HR solution, 28 years in the market",
     path: "/company/about-us",
-  },
-  {
-    icon: Code,
-    name: "Developments",
-    description: "Stay updated on the latest product news and development",
-    path: "/company/developments",
-  },
-  {
-    icon: Users,
-    name: "Careers",
-    description: "Contribute to our growth and development",
-    path: "/company/careers",
   },
   {
     icon: Phone,

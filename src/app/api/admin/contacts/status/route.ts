@@ -68,7 +68,6 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { contactId, status } = body;
 
-    // Validate inputs
     if (!contactId || !status) {
       return NextResponse.json(
         { error: "Missing required fields" },
@@ -76,7 +75,6 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Validate status value
     const validStatuses = ["new", "contacted", "replied", "closed"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
@@ -85,10 +83,21 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    // Get old status for the log message
+    const { data: oldContact } = await supabaseAdmin
+      .from("contacts")
+      .select("status, full_name")
+      .eq("id", contactId)
+      .single();
+
     // Update status
     const { error } = await supabaseAdmin
       .from("contacts")
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+        updated_by: authData.user.id,
+      })
       .eq("id", contactId);
 
     if (error) {
@@ -98,6 +107,23 @@ export async function PATCH(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // --- (FIXED) ADD AUDIT LOG ---
+    if (oldContact?.status !== status) {
+      await supabaseAdmin.from("admin_audit_log").insert({
+        admin_id: authData.user.id,
+        action: "contact.status_change",
+        details: {
+          message: `Changed ${oldContact?.full_name || "contact"}'s status from '${
+            oldContact?.status
+          }' to '${status}'`,
+          contact_id: contactId,
+          old_status: oldContact?.status,
+          new_status: status,
+        },
+      });
+    }
+    // --- END LOG ---
 
     return NextResponse.json(
       {

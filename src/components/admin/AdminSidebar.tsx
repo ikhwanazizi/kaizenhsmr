@@ -16,6 +16,7 @@ import {
   Key,
   Shield,
   ScrollText,
+  Send, // <-- 1. IMPORT THE NEW ICON
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -69,7 +70,7 @@ export default function AdminSidebar({
 
   // Helper function to check if link is active
   const isActive = (path: string) => {
-    return pathname === path;
+    return pathname.startsWith(path); // Use startsWith to keep it active on sub-pages
   };
 
   // Navigation Link Component
@@ -112,6 +113,7 @@ export default function AdminSidebar({
     </h3>
   );
 
+  // Only super admins should see elevated navigation (e.g., Audit Log).
   const isSuperAdmin = profile?.role === "super_admin";
 
   return (
@@ -150,6 +152,14 @@ export default function AdminSidebar({
                 icon={Users}
                 label="Subscribers"
               />
+              {/* Newsletter is restricted to super admins. */}
+              {isSuperAdmin && (
+                <NavLink
+                  href="/admin/newsletter"
+                  icon={Send}
+                  label="Newsletter"
+                />
+              )}
             </div>
           </div>
 

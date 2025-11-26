@@ -1,21 +1,86 @@
 // src/components/layout/Footer.tsx
 
-"use client"; // This component now needs client-side interactivity
+"use client";
 
-import React, { useState, FormEvent } from "react";
+import React, { useState, FormEvent, useEffect } from "react";
 import Link from "next/link";
 import {
   hrmsSubmenus,
   resourcesSubmenus,
   companySubmenus,
 } from "@/data/submenus";
-import { Facebook, Linkedin, Apple, Send, Loader2 } from "lucide-react";
+import {
+  Facebook,
+  Linkedin,
+  Twitter,
+  Youtube,
+  Instagram,
+  Github,
+  Gitlab,
+  Twitch,
+  Dribbble,
+  Slack,
+  Globe,
+  Apple,
+  Send,
+  Loader2,
+  Smartphone,
+} from "lucide-react";
+import { getPublicSettings, type PublicSettings } from "@/lib/public-settings";
+
+// Icon mapping helper
+const getSocialIcon = (platformName: string) => {
+  const name = platformName.toLowerCase().trim();
+  if (name.includes("facebook")) return Facebook;
+  if (name.includes("linkedin")) return Linkedin;
+  if (name.includes("twitter") || name.includes("x.com") || name === "x")
+    return Twitter;
+  if (name.includes("youtube")) return Youtube;
+  if (name.includes("instagram")) return Instagram;
+  if (name.includes("github")) return Github;
+  if (name.includes("gitlab")) return Gitlab;
+  if (name.includes("twitch")) return Twitch;
+  if (name.includes("dribbble")) return Dribbble;
+  if (name.includes("slack")) return Slack;
+  if (name.includes("tiktok")) return Smartphone; // Approximate icon
+  return Globe; // Default fallback
+};
 
 const Footer = () => {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
+
+  const [settings, setSettings] = useState<PublicSettings>({
+    company_slogan: "Malaysia's Tier 1 Enterprise HR Solution",
+    contact_email: "inquiry@kaizenhrms.com",
+    contact_phone: "+603-62010242",
+    social_links: "[]",
+    link_app_store: "#",
+    link_google_play: "#",
+    footer_copyright_text: "© KaiZenHR Sdn Bhd 2025. All Rights Reserved.",
+  });
+
+  // Parse social links safely
+  const socialLinks = React.useMemo(() => {
+    try {
+      const parsed = settings.social_links
+        ? JSON.parse(settings.social_links)
+        : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }, [settings.social_links]);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      const data = await getPublicSettings();
+      setSettings((prev) => ({ ...prev, ...data }));
+    };
+    loadSettings();
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -47,7 +112,7 @@ const Footer = () => {
 
       setMessage(data.message);
       setIsError(false);
-      setEmail(""); // Clear input on success
+      setEmail("");
     } catch (error: any) {
       setMessage(error.message);
       setIsError(true);
@@ -64,9 +129,7 @@ const Footer = () => {
           {/* Company Info */}
           <div className="col-span-2 sm:col-span-2 lg:col-span-1">
             <h2 className="text-2xl font-bold mb-4">Kaizen</h2>
-            <p className="text-blue-200">
-              Malaysia's Tier 1 <br /> Enterprise HR Solution
-            </p>
+            <p className="text-blue-200">{settings.company_slogan}</p>
           </div>
 
           {/* HRMS Links */}
@@ -167,35 +230,41 @@ const Footer = () => {
             )}
           </div>
 
-          {/* Social Media -- THIS SECTION IS NOW RESTORED */}
+          {/* Social Media - Dynamic List */}
           <div className="flex flex-col justify-end md:justify-start text-center">
             <h3 className="text-lg font-semibold mb-4">Follow us</h3>
-            <div className="flex space-x-4 justify-center">
-              <a
-                href="#"
-                aria-label="Facebook"
-                className="bg-white hover:bg-yellow-400 text-[#32353a] p-3 rounded-full transition-colors"
-              >
-                <Facebook size={20} />
-              </a>
-              <a
-                href="#"
-                aria-label="LinkedIn"
-                className="bg-white hover:bg-yellow-400 text-[#32353a] p-3 rounded-full transition-colors"
-              >
-                <Linkedin size={20} />
-              </a>
+            <div className="flex space-x-4 justify-center flex-wrap gap-y-4">
+              {socialLinks.map(
+                (link: { platform: string; url: string }, index: number) => {
+                  const Icon = getSocialIcon(link.platform);
+                  return (
+                    <a
+                      key={index}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={link.platform}
+                      className="bg-white hover:bg-yellow-400 text-[#32353a] p-3 rounded-full transition-colors"
+                      title={link.platform}
+                    >
+                      <Icon size={20} />
+                    </a>
+                  );
+                }
+              )}
             </div>
           </div>
 
-          {/* Mobile App Downloads -- THIS SECTION IS NOW RESTORED */}
+          {/* Mobile App Downloads */}
           <div className="col-span-2 md:col-span-1">
             <h3 className="text-lg font-semibold mb-4">
               Download the Mobile App
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <a
-                href="#"
+                href={settings.link_app_store || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="bg-black hover:bg-gray-800 px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
               >
                 <Apple size={24} />
@@ -205,7 +274,9 @@ const Footer = () => {
                 </div>
               </a>
               <a
-                href="#"
+                href={settings.link_google_play || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="bg-black hover:bg-gray-800 px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
               >
                 <svg
@@ -232,7 +303,10 @@ const Footer = () => {
 
         {/* Copyright Section */}
         <div className="mt-12 pt-8 border-t border-white/20 text-center text-blue-200 text-sm">
-          © KaiZenHR Sdn Bhd 2025. All Rights Reserved.
+          <p>
+            {settings.footer_copyright_text ||
+              "© KaiZenHR Sdn Bhd 2025. All Rights Reserved."}
+          </p>
         </div>
       </div>
     </footer>

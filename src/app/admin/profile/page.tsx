@@ -1,14 +1,22 @@
-// src/app/admin/profile/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { User, Mail, Shield, Calendar, Clock, Edit } from "lucide-react";
+import {
+  User,
+  Mail,
+  Shield,
+  Calendar,
+  Clock,
+  Edit,
+  Activity,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ProfileData } from "@/types/profile";
 import EditProfileModal from "@/components/admin/EditProfileModal";
 import Toast from "@/components/shared/Toast";
 import { updateProfile } from "./actions";
+import LoadingSpinner from "@/components/shared/LoadingSpinner";
 
 const StatusBadge = ({ status }: { status: string }) => {
   const baseClasses =
@@ -95,7 +103,6 @@ export default function ProfilePage() {
     const fetchProfile = async () => {
       setLoading(true);
 
-      // Get current user
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -105,7 +112,6 @@ export default function ProfilePage() {
         return;
       }
 
-      // Get profile data
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("id, full_name, email, role, status, created_at")
@@ -119,7 +125,6 @@ export default function ProfilePage() {
         return;
       }
 
-      // Get last sign in from auth.users
       const { data: userData, error: userError } = await supabase.rpc(
         "get_user_last_sign_in",
         { user_id: user.id }
@@ -162,15 +167,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-slate-500 dark:text-slate-400">
-          Loading profile...
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner />;
 
   if (error || !profile) {
     return (
@@ -185,7 +182,7 @@ export default function ProfilePage() {
           </p>
           <button
             onClick={() => router.push("/admin/dashboard")}
-            className="w-full px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            className="w-full px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           >
             Go to Dashboard
           </button>
@@ -204,123 +201,183 @@ export default function ProfilePage() {
         />
       )}
 
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            Profile
-          </h1>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            View and manage your profile information.
-          </p>
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Profile
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Manage your account information and preferences
+            </p>
+          </div>
         </div>
 
-        {/* Profile Card */}
-        <div className="bg-white rounded-lg shadow dark:bg-slate-800">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
-            <div className="flex items-center space-x-4">
-              {/* <div className="flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full dark:bg-blue-900/50">
-                <User className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div> */}
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Left Column - Profile Summary */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow dark:bg-slate-800 p-6">
+              {/* Profile Info */}
+              <div className="flex flex-col items-center mb-6">
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-white text-center">
                   {profile.full_name || "N/A"}
                 </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 capitalize">
-                  {profile.role?.replace("_", " ")}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsEditModalOpen(true)}
-              className="inline-flex items-center justify-center px-4 py-2 space-x-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-            >
-              <Edit size={16} />
-              <span>Edit Profile</span>
-            </button>
-          </div>
-
-          {/* Personal Information */}
-          <div className="p-6">
-            <h3 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">
-              Personal Information
-            </h3>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Full Name */}
-              <div>
-                <label className="flex items-center mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <User className="w-4 h-4 mr-2" />
-                  Full Name
-                </label>
-                <p className="text-slate-900 dark:text-white">
-                  {profile.full_name || "N/A"}
-                </p>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="flex items-center mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <Mail className="w-4 h-4 mr-2" />
-                  Email
-                </label>
-                <p className="text-slate-900 dark:text-white">
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                   {profile.email}
                 </p>
+                <div className="flex gap-2 mt-3">
+                  <RoleBadge role={profile.role} />
+                  <StatusBadge status={profile.status} />
+                </div>
               </div>
 
-              {/* Role */}
-              <div>
-                <label className="flex items-center mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Role
-                </label>
-                <RoleBadge role={profile.role} />
+              {/* Quick Stats */}
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-6 mb-6">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
+                  Account Activity
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-center text-sm">
+                    <Activity className="w-4 h-4 mr-3 text-slate-400" />
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Member since{" "}
+                      {new Date(profile.created_at).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "short",
+                          year: "numeric",
+                        }
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <Clock className="w-4 h-4 mr-3 text-slate-400" />
+                    <span className="text-slate-600 dark:text-slate-400">
+                      {profile.last_sign_in_at
+                        ? `Active ${new Date(profile.last_sign_in_at).toLocaleDateString()}`
+                        : "Never logged in"}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Status */}
-              <div>
-                <label className="flex items-center mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Status
-                </label>
-                <StatusBadge status={profile.status} />
+              {/* Edit Button */}
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="w-full inline-flex items-center justify-center px-4 py-2 space-x-2 text-sm font-semibold text-white transition-colors bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              >
+                <Edit size={16} />
+                <span>Edit Profile</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Right Column - Detailed Information */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow dark:bg-slate-800">
+              {/* Personal Information Section */}
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6">
+                  Personal Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Full Name */}
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-slate-500 dark:text-slate-400">
+                      <User className="w-4 h-4 mr-2" />
+                      Full Name
+                    </label>
+                    <p className="text-slate-900 dark:text-white font-medium">
+                      {profile.full_name || "N/A"}
+                    </p>
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-slate-500 dark:text-slate-400">
+                      <Mail className="w-4 h-4 mr-2" />
+                      Email Address
+                    </label>
+                    <p className="text-slate-900 dark:text-white font-medium">
+                      {profile.email}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {/* Account Created */}
-              <div>
-                <label className="flex items-center mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Account Created
-                </label>
-                <p className="text-slate-900 dark:text-white">
-                  {new Date(profile.created_at).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
+              {/* Account Settings Section */}
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6">
+                  Account Settings
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Role */}
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-slate-500 dark:text-slate-400">
+                      <Shield className="w-4 h-4 mr-2" />
+                      Account Role
+                    </label>
+                    <RoleBadge role={profile.role} />
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-slate-500 dark:text-slate-400">
+                      <Activity className="w-4 h-4 mr-2" />
+                      Account Status
+                    </label>
+                    <StatusBadge status={profile.status} />
+                  </div>
+                </div>
               </div>
 
-              {/* Last Login */}
-              <div>
-                <label className="flex items-center mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <Clock className="w-4 h-4 mr-2" />
-                  Last Login
-                </label>
-                <p className="text-slate-900 dark:text-white">
-                  {profile.last_sign_in_at
-                    ? new Date(profile.last_sign_in_at).toLocaleString(
+              {/* Activity Section */}
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6">
+                  Activity Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Account Created */}
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-slate-500 dark:text-slate-400">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Account Created
+                    </label>
+                    <p className="text-slate-900 dark:text-white font-medium">
+                      {new Date(profile.created_at).toLocaleDateString(
                         "en-US",
                         {
                           year: "numeric",
                           month: "long",
                           day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
                         }
-                      )
-                    : "Never"}
-                </p>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Last Login */}
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-slate-500 dark:text-slate-400">
+                      <Clock className="w-4 h-4 mr-2" />
+                      Last Login
+                    </label>
+                    <p className="text-slate-900 dark:text-white font-medium">
+                      {profile.last_sign_in_at
+                        ? new Date(profile.last_sign_in_at).toLocaleString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )
+                        : "Never"}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -1,12 +1,29 @@
-// src/components/admin/SubscribersClient.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import DataTable, { type Column } from "@/components/shared/DataTable";
-import { type Subscriber } from "@/app/admin/subscribers/page";
-import { Download, UserX, AlertCircle } from "lucide-react";
+import {
+  Download,
+  UserX,
+  AlertCircle,
+  Users,
+  CalendarDays,
+  Clock,
+  Filter,
+  Mail,
+  ChevronDown, // <-- Added Icon
+} from "lucide-react";
 
-// Helper to format dates
+// ... (Types and Helper functions remain the same)
+
+export type Subscriber = {
+  id: string;
+  email: string;
+  status: "subscribed" | "unverified" | "unsubscribed";
+  created_at: string;
+  verified_at: string | null;
+};
+
 const formatDate = (dateString: string | null) => {
   if (!dateString) return "N/A";
   return new Date(dateString).toLocaleString("en-US", {
@@ -18,7 +35,6 @@ const formatDate = (dateString: string | null) => {
   });
 };
 
-// Helper to generate a status badge with appropriate colors
 const StatusBadge = ({
   status,
 }: {
@@ -32,19 +48,35 @@ const StatusBadge = ({
   switch (status) {
     case "subscribed":
       colorClasses =
-        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+        "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
       break;
     case "unverified":
       colorClasses =
-        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
       break;
     case "unsubscribed":
       colorClasses =
-        "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+        "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
       break;
   }
   return <span className={`${baseClasses} ${colorClasses}`}>{text}</span>;
 };
+
+const StatCard = ({ title, count, icon: Icon, colorClass }: any) => (
+  <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between">
+    <div>
+      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+        {title}
+      </p>
+      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+        {count}
+      </h3>
+    </div>
+    <div className={`p-3 rounded-lg ${colorClass}`}>
+      <Icon className="w-6 h-6" />
+    </div>
+  </div>
+);
 
 export default function SubscribersClient({
   initialSubscribers,
@@ -56,8 +88,44 @@ export default function SubscribersClient({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "subscribed" | "unverified" | "unsubscribed"
+  >("all");
 
-  // Function to handle unsubscribing a user
+  // Calculate Statistics
+  const stats = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const totalCurrent = subscribers.filter(
+      (s) => s.status === "subscribed"
+    ).length;
+    const totalUnverified = subscribers.filter(
+      (s) => s.status === "unverified"
+    ).length;
+
+    const last7Days = subscribers.filter(
+      (s) => new Date(s.created_at) > sevenDaysAgo
+    ).length;
+    const last30Days = subscribers.filter(
+      (s) => new Date(s.created_at) > thirtyDaysAgo
+    ).length;
+
+    return {
+      totalCurrent,
+      totalUnverified,
+      last7Days,
+      last30Days,
+    };
+  }, [subscribers]);
+
+  // Filter Data
+  const filteredData = useMemo(() => {
+    if (filterStatus === "all") return subscribers;
+    return subscribers.filter((s) => s.status === filterStatus);
+  }, [subscribers, filterStatus]);
+
   const handleUnsubscribe = async (id: string) => {
     setError(null);
     try {
@@ -86,7 +154,6 @@ export default function SubscribersClient({
     }
   };
 
-  // Function to handle CSV download
   const handleDownloadCSV = () => {
     setLoading(true);
     setError(null);
@@ -97,7 +164,6 @@ export default function SubscribersClient({
       return;
     }
 
-    // 1. We no longer filter, and we map all the data we want
     const allSubscriberData = subscribers.map((s) => ({
       email: s.email,
       status: s.status,
@@ -105,10 +171,7 @@ export default function SubscribersClient({
       verified_at: formatDate(s.verified_at),
     }));
 
-    // 2. Update the header to include all new columns
     const csvHeader = "email,status,subscribed_at,verified_at\n";
-
-    // 3. Update the rows to match the new columns
     const csvRows = allSubscriberData
       .map(
         (row) =>
@@ -133,7 +196,17 @@ export default function SubscribersClient({
   };
 
   const columns: Column<Subscriber>[] = [
-    { key: "email", label: "Email", sortable: true },
+    {
+      key: "email",
+      label: "Email",
+      sortable: true,
+      render: (item) => (
+        <div className="flex items-center gap-2">
+          <Mail className="w-4 h-4 text-slate-400" />
+          <span>{item.email}</span>
+        </div>
+      ),
+    },
     {
       key: "status",
       label: "Status",
@@ -192,21 +265,74 @@ export default function SubscribersClient({
     <button
       onClick={handleDownloadCSV}
       disabled={loading}
-      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-wait"
+      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-wait"
     >
       <Download size={16} />
       Download CSV
     </button>
   );
 
+  // UPDATED: Wider Filter with Chevron
+  const filterControls = (
+    <div className="relative">
+      <Filter
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+        size={16}
+      />
+      <ChevronDown
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+        size={16}
+      />
+      <select
+        value={filterStatus}
+        onChange={(e) => setFilterStatus(e.target.value as any)}
+        // Added min-w-[180px] and pr-10 for wider look and chevron space
+        className="w-full pl-9 pr-10 py-2 text-sm border rounded-lg appearance-none bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white min-w-[180px]"
+      >
+        <option value="all">All Status</option>
+        <option value="subscribed">Subscribed</option>
+        <option value="unverified">Unverified</option>
+        <option value="unsubscribed">Unsubscribed</option>
+      </select>
+    </div>
+  );
+
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Newsletter Subscribers</h1>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Current Subscribers"
+          count={stats.totalCurrent}
+          icon={Users}
+          colorClass="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
+        />
+        <StatCard
+          title="New (Last 30 Days)"
+          count={stats.last30Days}
+          icon={CalendarDays}
+          colorClass="bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300"
+        />
+        <StatCard
+          title="New (Last 7 Days)"
+          count={stats.last7Days}
+          icon={Clock}
+          colorClass="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300"
+        />
+        <StatCard
+          title="Unverified / Pending"
+          count={stats.totalUnverified}
+          icon={AlertCircle}
+          colorClass="bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300"
+        />
+      </div>
+
       {error && (
         <div
-          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4 flex items-center gap-2"
+          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative flex items-center gap-2"
           role="alert"
         >
           <AlertCircle size={20} />
@@ -219,8 +345,9 @@ export default function SubscribersClient({
           </button>
         </div>
       )}
+
       <DataTable
-        data={subscribers}
+        data={filteredData}
         columns={columns}
         searchable={true}
         searchKeys={["email"]}
@@ -228,7 +355,8 @@ export default function SubscribersClient({
         itemsPerPage={15}
         actions={actions}
         headerActions={headerActions}
-        emptyMessage="No subscribers found."
+        filterControls={filterControls}
+        emptyMessage="No subscribers found matching your criteria."
       />
     </div>
   );
