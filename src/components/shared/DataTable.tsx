@@ -1,8 +1,14 @@
 // src/components/shared/DataTable.tsx
 "use client";
 
-import { useState, useMemo } from "react";
-import { ChevronUp, ChevronDown, Search } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import {
+  ChevronUp,
+  ChevronDown,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 export type Column<T> = {
   key: string;
@@ -21,7 +27,7 @@ type DataTableProps<T> = {
   itemsPerPage?: number;
   onRowClick?: (item: T) => void;
   actions?: (item: T) => React.ReactNode;
-  actionsLabel?: string; // Added new prop
+  actionsLabel?: string;
   emptyMessage?: string;
   className?: string;
   headerActions?: React.ReactNode;
@@ -37,7 +43,7 @@ export default function DataTable<T extends Record<string, any>>({
   itemsPerPage = 10,
   onRowClick,
   actions,
-  actionsLabel = "Actions", // Default label
+  actionsLabel = "Actions",
   emptyMessage = "No data available",
   className = "",
   headerActions,
@@ -100,9 +106,9 @@ export default function DataTable<T extends Record<string, any>>({
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
   // Reset to page 1 when search or data changes
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, data]);
+  }, [searchTerm, data]); // Changed useMemo to useEffect to avoid side-effects in render
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -110,9 +116,8 @@ export default function DataTable<T extends Record<string, any>>({
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div className="flex-shrink-0">{headerActions}</div>
 
-        {/* --- MODIFIED: Wrapper for filters + search --- */}
         <div className="flex flex-col w-full gap-2 md:flex-row md:w-auto md:items-center">
-          {filterControls} {/* <-- ADDED THIS PROP */}
+          {filterControls}
           {searchable && (
             <div className="relative w-full md:max-w-xs">
               <Search
@@ -124,184 +129,151 @@ export default function DataTable<T extends Record<string, any>>({
                 placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full py-1.5 pl-10 pr-4 border rounded-lg bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white dark:placeholder-slate-400"
+                className="w-full py-2 pl-10 pr-4 text-sm border rounded-lg bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white dark:placeholder-slate-400"
               />
             </div>
           )}
         </div>
-        {/* --- END MODIFICATION --- */}
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto bg-white border rounded-lg shadow-md dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-        <table className="w-full text-sm text-left text-slate-500 dark:text-slate-400">
-          <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300">
-            <tr>
-              {columns.map((column) => (
-                <th
-                  key={column.key}
-                  scope="col"
-                  className={`px-6 py-4 font-medium ${column.className || ""} ${
-                    column.sortable
-                      ? "cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700"
-                      : ""
-                  }`}
-                  onClick={() => column.sortable && handleSort(column.key)}
-                >
-                  <div className="flex items-center space-x-1">
-                    <span>{column.label}</span>
-                    {column.sortable && (
-                      <div className="flex flex-col">
-                        <ChevronUp
-                          size={14}
-                          className={`-mb-1 ${
-                            sortConfig?.key === column.key &&
-                            sortConfig.direction === "asc"
-                              ? "text-blue-500"
-                              : "text-slate-400 dark:text-slate-500"
-                          }`}
-                        />
-                        <ChevronDown
-                          size={14}
-                          className={`-mt-1 ${
-                            sortConfig?.key === column.key &&
-                            sortConfig.direction === "desc"
-                              ? "text-blue-500"
-                              : "text-slate-400 dark:text-slate-500"
-                          }`}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </th>
-              ))}
-
-              {/* Actions column with label */}
-              {actions && (
-                <th scope="col" className="px-6 py-4 font-medium text-right">
-                  <span>{actionsLabel}</span>
-                </th>
-              )}
-            </tr>
-          </thead>
-
-          <tbody>
-            {paginatedData.length === 0 ? (
+      <div className="overflow-hidden bg-white border rounded-xl shadow-sm dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left text-slate-500 dark:text-slate-400">
+            <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 font-medium">
               <tr>
-                <td
-                  colSpan={columns.length + (actions ? 1 : 0)}
-                  className="px-6 py-12 text-center text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800"
-                >
-                  {emptyMessage}
-                </td>
+                {columns.map((column) => (
+                  <th
+                    key={column.key}
+                    scope="col"
+                    className={`px-6 py-4 font-medium whitespace-nowrap ${column.className || ""} ${
+                      column.sortable
+                        ? "cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                        : ""
+                    }`}
+                    onClick={() => column.sortable && handleSort(column.key)}
+                  >
+                    <div className="flex items-center space-x-1">
+                      <span>{column.label}</span>
+                      {column.sortable && (
+                        <div className="flex flex-col">
+                          <ChevronUp
+                            size={10}
+                            className={`-mb-0.5 ${
+                              sortConfig?.key === column.key &&
+                              sortConfig.direction === "asc"
+                                ? "text-blue-600 dark:text-blue-400"
+                                : "text-slate-400"
+                            }`}
+                          />
+                          <ChevronDown
+                            size={10}
+                            className={`-mt-0.5 ${
+                              sortConfig?.key === column.key &&
+                              sortConfig.direction === "desc"
+                                ? "text-blue-600 dark:text-blue-400"
+                                : "text-slate-400"
+                            }`}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                ))}
+
+                {actions && (
+                  <th
+                    scope="col"
+                    className="px-6 py-4 font-medium text-right whitespace-nowrap"
+                  >
+                    <span>{actionsLabel}</span>
+                  </th>
+                )}
               </tr>
-            ) : (
-              paginatedData.map((item, index) => (
-                <tr
-                  key={index}
-                  className={`transition-colors bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 ${
-                    onRowClick ? "cursor-pointer" : ""
-                  }`}
-                  onClick={() => onRowClick?.(item)}
-                >
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className={`px-6 py-4 text-slate-800 dark:text-slate-200 ${
-                        column.className || ""
-                      }`}
-                    >
-                      {column.render
-                        ? column.render(item)
-                        : item[column.key] || "N/A"}
-                    </td>
-                  ))}
+            </thead>
 
-                  {actions && (
-                    <td className="px-6 py-4">
-                      <div
-                        className="flex items-center justify-end space-x-4"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {actions(item)}
-                      </div>
-                    </td>
-                  )}
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+              {paginatedData.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={columns.length + (actions ? 1 : 0)}
+                    className="px-6 py-12 text-center text-slate-500 dark:text-slate-400"
+                  >
+                    <div className="flex flex-col items-center justify-center py-4">
+                      <p className="text-sm">{emptyMessage}</p>
+                    </div>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                paginatedData.map((item, index) => (
+                  <tr
+                    key={index}
+                    className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                      onRowClick ? "cursor-pointer" : ""
+                    }`}
+                    onClick={() => onRowClick?.(item)}
+                  >
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        className={`px-6 py-4 text-slate-900 dark:text-slate-200 ${
+                          column.className || ""
+                        }`}
+                      >
+                        {column.render
+                          ? column.render(item)
+                          : item[column.key] || (
+                              <span className="text-slate-400">-</span>
+                            )}
+                      </td>
+                    ))}
 
-      {/* Pagination */}
-      {pagination && totalPages > 1 && (
-        <div className="flex flex-col items-center justify-between gap-4 px-4 py-3 sm:flex-row bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
-          <div className="text-sm text-slate-600 dark:text-slate-400">
-            Showing{" "}
-            <span className="font-semibold text-slate-800 dark:text-slate-200">
-              {(currentPage - 1) * itemsPerPage + 1}
-            </span>{" "}
-            to{" "}
-            <span className="font-semibold text-slate-800 dark:text-slate-200">
-              {Math.min(currentPage * itemsPerPage, sortedData.length)}
-            </span>{" "}
-            of{" "}
-            <span className="font-semibold text-slate-800 dark:text-slate-200">
-              {sortedData.length}
-            </span>{" "}
-            results
-          </div>
+                    {actions && (
+                      <td className="px-6 py-4">
+                        <div
+                          className="flex items-center justify-end gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {actions(item)}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-          <div className="flex items-center space-x-2">
+        {/* --- UPDATED: Pagination Footer (Matching Audit Log Style) --- */}
+        {pagination && totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50/50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm font-medium transition-colors border rounded-md text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:dark:bg-slate-800 disabled:dark:text-slate-500"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
+              <ChevronLeft size={16} />
               Previous
             </button>
 
-            <div className="items-center hidden space-x-1 md:flex">
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((page) => {
-                  return (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  );
-                })
-                .map((page, index, array) => (
-                  <div key={page} className="flex items-center">
-                    {index > 0 && array[index - 1] !== page - 1 && (
-                      <span className="px-2 text-slate-500">...</span>
-                    )}
-                    <button
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 text-sm font-medium transition-colors rounded-md ${
-                        currentPage === page
-                          ? "bg-blue-600 text-white"
-                          : "text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  </div>
-                ))}
-            </div>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+              Page {currentPage} of {totalPages}
+            </span>
 
             <button
               onClick={() =>
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))
               }
               disabled={currentPage === totalPages}
-              className="px-3 py-1 text-sm font-medium transition-colors border rounded-md text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed disabled:dark:bg-slate-800 disabled:dark:text-slate-500"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
+              <ChevronRight size={16} />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

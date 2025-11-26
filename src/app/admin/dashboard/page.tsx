@@ -8,7 +8,7 @@ import DashboardStatsGrid from "./components/DashboardStatsGrid";
 import ActivityTimeline from "./components/ActivityTimeline";
 import ContactsTable from "./components/ContactsTable";
 import QuickActions from "./components/QuickActions";
-import SubscriberChart from "./components/SubscriberChart"; // New Import
+import SubscriberChart from "./components/SubscriberChart";
 
 export const metadata = {
   title: "Admin Dashboard | Kaizen",
@@ -17,7 +17,6 @@ export const metadata = {
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  // 1. Auth & Role Check
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -36,58 +35,57 @@ export default async function DashboardPage() {
 
   const isSuperAdmin = profile.role === "super_admin";
 
-  // 2. Parallel Data Fetching
+  const now = new Date();
+  const startOfThisMonth = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  ).toISOString();
+  const startOfLastMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() - 1,
+    1
+  ).toISOString();
+
+  // 1. Fetch Data (Increased limits for pagination)
   const [
     postsResult,
     contactsResult,
     subscribersResult,
     campaignsResult,
     quotaResult,
-    settingsResult,
     auditLogsResult,
   ] = await Promise.all([
     supabase
       .from("posts")
-      .select("id, title, status, created_at, author_id")
+      .select("id, title, status, created_at")
       .order("created_at", { ascending: false })
-      .limit(5),
-
+      .limit(20), // Limit increased
     supabase
       .from("contacts")
       .select("id, full_name, company, status, created_at")
       .order("created_at", { ascending: false })
-      .limit(10),
-
-    // Fetch ALL subscribers specifically to calculate growth chart
+      .limit(50), // Limit increased for Table
     supabase
       .from("newsletter_subscribers")
       .select("id, status, created_at")
       .order("created_at", { ascending: true }),
-
     supabase
       .from("newsletter_campaigns")
-      .select(
-        "id, subject, status, sent_at, total_sent, total_failed, created_at"
-      )
+      .select("id, subject, status, sent_at, total_sent, created_at")
       .order("created_at", { ascending: false })
-      .limit(5),
-
+      .limit(20),
     supabase.rpc("get_remaining_daily_email_quota"),
-
-    isSuperAdmin
-      ? supabase.from("system_settings").select("key, value")
-      : Promise.resolve({ data: null }),
-
     isSuperAdmin
       ? supabase
           .from("admin_audit_log")
-          .select("id, action, details, created_at")
+          .select("id, action, created_at")
           .order("created_at", { ascending: false })
-          .limit(5)
+          .limit(30)
       : Promise.resolve({ data: [] }),
   ]);
 
-  // 3. Process Stats
+  // 2. Process Raw Data
   const posts = postsResult.data || [];
   const contacts = contactsResult.data || [];
   const subscribers = subscribersResult.data || [];
@@ -95,95 +93,113 @@ export default async function DashboardPage() {
   const remainingQuota =
     typeof quotaResult.data === "number" ? quotaResult.data : 0;
 
-  // Calculate Stats
-  const totalPosts = posts.length;
-  const newContactsCount = contacts.filter((c) => c.status === "new").length;
-  const totalSubscribers = subscribers.filter(
-    (s) => s.status === "subscribed"
-  ).length;
+  // --- Helper: Trends ---
+  function getTrend(data: any[]) {
+    const thisMonth = data.filter(
+      (i) => i.created_at >= startOfThisMonth
+    ).length;
+    const lastMonth = data.filter(
+      (i) => i.created_at >= startOfLastMonth && i.created_at < startOfThisMonth
+    ).length;
 
-  // --- NEW: Process Chart Data ---
-  // Group subscribers by month (Jan, Feb, Mar) and calculate cumulative sum
-  const chartDataMap = new Map<string, number>();
-  let cumulativeCount = 0;
+    if (lastMonth === 0)
+      return {
+        trend: "neutral" as const,
+        value: thisMonth > 0 ? "+100%" : "0%",
+      };
 
-  // 1. Initialize last 6 months with 0 if needed (optional, keeps chart looking full)
-  // 2. Loop through subscribers
-  subscribers.forEach((sub) => {
-    if (sub.status !== "subscribed") return;
-
-    const date = new Date(sub.created_at);
-    const key = date.toLocaleDateString("en-US", {
-      month: "short",
-      year: "2-digit",
-    }); // e.g. "Oct 24"
-
-    // Since they are ordered by date, we can just increment a running total?
-    // Actually, easiest is to count per month then running total.
-    chartDataMap.set(key, (chartDataMap.get(key) || 0) + 1);
-  });
-
-  // Convert Map to Array and Calculate Cumulative
-  let runningTotal = 0;
-  const chartData = Array.from(chartDataMap.entries()).map(([date, count]) => {
-    runningTotal += count;
-    return { date, count: runningTotal };
-  });
-
-  // If empty, provide dummy data so the chart renders something pretty
-  if (chartData.length === 0) {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-    months.forEach((m, i) => chartData.push({ date: m, count: i * 5 + 2 }));
+    const diff = thisMonth - lastMonth;
+    const percent = Math.round((diff / lastMonth) * 100);
+    return {
+      trend: percent > 0 ? "up" : percent < 0 ? "down" : "neutral",
+      value: `${percent > 0 ? "+" : ""}${percent}%`,
+    } as const;
   }
 
+  const postTrend = getTrend(posts);
+  const contactTrend = getTrend(contacts);
+  const subTrend = getTrend(subscribers);
+
+  // --- 3. Build Stats Cards ---
   const stats: DashboardStat[] = [
     {
-      label: "Recent Posts",
-      value: totalPosts,
+      label: "Total Posts",
+      value: posts.length, // Note: For total count in huge DB, use proper count query. For now this works for recent.
       href: "/admin/blog",
       iconName: "FileText",
       color: "blue",
+      trend: postTrend.trend,
+      trendValue: postTrend.value,
+      trendLabel: "vs last month",
     },
     {
       label: "Pending Inquiries",
-      value: newContactsCount,
+      value: contacts.filter((c) => c.status === "new").length,
       href: "/admin/contacts?filter=new",
       iconName: "Users",
-      color: newContactsCount > 0 ? "yellow" : "green",
+      color: "yellow",
+      trend: contactTrend.trend,
+      trendValue: contactTrend.value,
+      trendLabel: "vs last month",
     },
     {
-      label: "Active Subscribers",
-      value: totalSubscribers,
+      label: "Total Subscribers",
+      value: subscribers.length,
       href: "/admin/subscribers",
       iconName: "Mail",
       color: "purple",
+      trend: subTrend.trend,
+      trendValue: subTrend.value,
+      trendLabel: "vs last month",
     },
     {
       label: "Last Campaign",
-      value:
-        campaigns[0]?.status === "sent" || campaigns[0]?.status === "completed"
-          ? `${campaigns[0].total_sent} Sent`
-          : campaigns[0]?.status || "No Data",
+      value: campaigns[0]?.total_sent || 0,
       href: "/admin/newsletter",
       iconName: "Activity",
       color: "green",
+      trend: "neutral",
+      trendValue: campaigns[0]?.status || "Draft",
+      trendLabel: "Status",
     },
   ];
 
   if (isSuperAdmin) {
     stats.push({
       label: "Email Quota",
-      value: `${remainingQuota} Remaining`,
+      value: remainingQuota,
       href: "/admin/settings",
       iconName: "Server",
-      color: remainingQuota < 20 ? "red" : "blue",
+      color: remainingQuota < 20 ? "red" : "gray",
+      trend: "down",
+      trendValue: `${100 - remainingQuota} used`,
+      trendLabel: "Daily limit: 100",
     });
   }
 
-  // 4. Process Activity Timeline
-  let activities: ActivityItem[] = [];
+  // --- 4. Process Chart Data (Daily) ---
+  const sortedSubs = [...subscribers].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+  const finalChartData = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    // Set end of day to include all subs from that day
+    d.setHours(23, 59, 59, 999);
 
-  posts.forEach((p) => {
+    const label = d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const count = sortedSubs.filter((s) => new Date(s.created_at) <= d).length;
+    finalChartData.push({ date: label, count });
+  }
+
+  // --- 5. Activities Feed (Combined) ---
+  let activities: ActivityItem[] = [];
+  posts.forEach((p) =>
     activities.push({
       id: p.id,
       type: "post",
@@ -191,22 +207,21 @@ export default async function DashboardPage() {
       status: p.status || "draft",
       timestamp: p.created_at,
       href: `/admin/editor/${p.id}`,
-    });
-  });
-
-  contacts.slice(0, 5).forEach((c) => {
-    activities.push({
-      id: c.id,
-      type: "contact",
-      title: `New inquiry from ${c.full_name}`,
-      subtitle: c.company,
-      status: c.status || "new",
-      timestamp: c.created_at,
-      href: `/admin/contacts`,
-    });
-  });
-
-  campaigns.forEach((c) => {
+    })
+  );
+  contacts
+    .slice(0, 15)
+    .forEach((c) =>
+      activities.push({
+        id: c.id,
+        type: "contact",
+        title: `New inquiry: ${c.full_name}`,
+        status: c.status || "new",
+        timestamp: c.created_at,
+        href: `/admin/contacts`,
+      })
+    );
+  campaigns.forEach((c) =>
     activities.push({
       id: c.id,
       type: "campaign",
@@ -214,11 +229,11 @@ export default async function DashboardPage() {
       status: c.status || "pending",
       timestamp: c.created_at,
       href: `/admin/newsletter/${c.id}`,
-    });
-  });
+    })
+  );
 
-  if (isSuperAdmin && auditLogsResult.data) {
-    auditLogsResult.data.forEach((log) => {
+  if (auditLogsResult.data) {
+    auditLogsResult.data.forEach((log) =>
       activities.push({
         id: log.id,
         type: "audit_log",
@@ -226,14 +241,18 @@ export default async function DashboardPage() {
         status: "info",
         timestamp: log.created_at,
         href: "/admin/audit-log",
-      });
-    });
+      })
+    );
   }
 
+  // Sort all activities by newest first
   activities.sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
-  activities = activities.slice(0, 10);
+
+  // Note: We don't slice strictly to 10 here anymore so the Timeline pagination has data to show.
+  // We'll limit to reasonable "feed" size (e.g. 50 items max) to keep page light.
+  activities = activities.slice(0, 50);
 
   return (
     <Container className="py-8 space-y-8 max-w-7xl mx-auto">
@@ -243,33 +262,28 @@ export default async function DashboardPage() {
             Dashboard
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Welcome back, {profile.full_name?.split(" ")[0] || "Admin"}. Here's
-            what's happening today.
+            Overview for {profile.full_name?.split(" ")[0]}
           </p>
         </div>
         <QuickActions isSuperAdmin={isSuperAdmin} />
       </div>
 
-      {/* 1. Top Stats - Remains the same */}
       <DashboardStatsGrid stats={stats} />
 
-      {/* 2. Middle: Subscriber Chart (Full Width) */}
       <div className="w-full">
-        <SubscriberChart data={chartData} />
+        <SubscriberChart data={finalChartData} />
       </div>
 
-      {/* 3. Bottom: Asymmetrical Split 
-          Activity (Narrower: col-span-1) | Contacts (Wider: col-span-2) 
-      */}
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Left Column: Activity Timeline (Narrower) */}
+        {/* Left Column: Activity Timeline */}
         <div className="lg:col-span-1">
           <ActivityTimeline items={activities} />
         </div>
 
-        {/* Right Column: Contacts Table (Wider) */}
+        {/* Right Column: Contacts Table */}
         <div className="lg:col-span-2 space-y-8">
-          <ContactsTable contacts={contacts.slice(0, 5)} />
+          {/* We pass the larger list of contacts now so table pagination works */}
+          <ContactsTable contacts={contacts} />
         </div>
       </div>
     </Container>

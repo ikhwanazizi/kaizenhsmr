@@ -17,7 +17,7 @@ export default function HomePage() {
       {/* Navbar */}
       <Navbar />
 
-      {/* Hero Section - Enhanced */}
+      {/* Hero Section */}
       <Hero />
 
       {/* Award Section */}

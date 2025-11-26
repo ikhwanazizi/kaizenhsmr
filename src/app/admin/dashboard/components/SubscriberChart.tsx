@@ -58,7 +58,13 @@ export default function SubscriberChart({ data }: { data: ChartData[] }) {
                 border: "1px solid #e2e8f0",
                 boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               }}
-              itemStyle={{ color: "#1e293b" }}
+              itemStyle={{ color: "#3b82f6", fontWeight: 600 }} // Value color (Blue)
+              labelStyle={{
+                color: "#0f172a",
+                fontWeight: 600,
+                marginBottom: "4px",
+              }} // Date color (Dark Slate)
+              cursor={{ stroke: "#94a3b8", strokeWidth: 1 }}
             />
             <Area
               type="monotone"

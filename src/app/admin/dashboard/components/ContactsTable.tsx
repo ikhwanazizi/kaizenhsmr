@@ -1,8 +1,9 @@
 // src/app/admin/dashboard/components/ContactsTable.tsx
 "use client";
 
+import { useState } from "react";
 import { ContactQuickView } from "@/types/dashboard";
-import { Eye } from "lucide-react";
+import { Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 const formatDate = (dateString: string) => {
@@ -28,11 +29,24 @@ const getStatusColor = (status: string) => {
   }
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export default function ContactsTable({
   contacts,
 }: {
   contacts: ContactQuickView[];
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(contacts.length / ITEMS_PER_PAGE);
+
+  const paginatedContacts = contacts.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const handlePrev = () => setCurrentPage((p) => Math.max(1, p - 1));
+  const handleNext = () => setCurrentPage((p) => Math.min(totalPages, p + 1));
+
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col h-full">
       <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
@@ -63,7 +77,7 @@ export default function ContactsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-              {contacts.map((contact) => (
+              {paginatedContacts.map((contact) => (
                 <tr
                   key={contact.id}
                   className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
@@ -101,6 +115,29 @@ export default function ContactsTable({
           </table>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+          <button
+            onClick={handlePrev}
+            disabled={currentPage === 1}
+            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={20} className="text-slate-500" />
+          </button>
+          <span className="text-xs text-slate-500 font-medium">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={handleNext}
+            disabled={currentPage === totalPages}
+            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronRight size={20} className="text-slate-500" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
