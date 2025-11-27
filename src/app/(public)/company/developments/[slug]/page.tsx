@@ -4,7 +4,8 @@ import BlogPostLayout from "@/components/blog/BlogPostLayout";
 export default async function DevelopmentPostPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>; // 1. Change type to Promise
 }) {
-  return <BlogPostLayout slug={params.slug} category="development" />;
+  const { slug } = await params; // 2. Await the params
+  return <BlogPostLayout slug={slug} category="development" />;
 }
