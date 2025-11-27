@@ -296,6 +296,41 @@ $$;
 ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."prevent_admin_deletion_safety"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+DECLARE
+  remaining_super_admins INTEGER;
+BEGIN
+  -----------------------------------------
+  -- RULE 1: Prevent deleting your own account
+  -----------------------------------------
+  IF auth.uid() = OLD.id THEN
+    RAISE EXCEPTION 'You cannot delete your own account.';
+  END IF;
+
+  -----------------------------------------
+  -- RULE 2: Prevent deleting the LAST super_admin
+  -----------------------------------------
+  IF OLD.role = 'super_admin' THEN
+    SELECT COUNT(*) INTO remaining_super_admins
+    FROM public.profiles
+    WHERE role = 'super_admin'
+      AND id <> OLD.id;   -- exclude the one being deleted
+
+    IF remaining_super_admins = 0 THEN
+      RAISE EXCEPTION 'Cannot delete the last super_admin. At least one super_admin must exist.';
+    END IF;
+  END IF;
+
+  RETURN OLD;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."prevent_admin_deletion_safety"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."prune_admin_audit_logs"() RETURNS "text"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -397,7 +432,7 @@ CREATE TABLE IF NOT EXISTS "public"."contact_replies" (
     "contact_id" "uuid" NOT NULL,
     "reply_message" "text" NOT NULL,
     "reply_method" "text" NOT NULL,
-    "replied_by" "uuid" NOT NULL,
+    "replied_by" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"(),
     CONSTRAINT "contact_replies_reply_method_check" CHECK (("reply_method" = ANY (ARRAY['in_app'::"text", 'email_client'::"text"])))
 );
@@ -448,7 +483,7 @@ CREATE TABLE IF NOT EXISTS "public"."newsletter_campaigns" (
     "subject" "text" NOT NULL,
     "preview_text" "text",
     "sent_at" timestamp with time zone DEFAULT "now"(),
-    "sent_by" "uuid" NOT NULL,
+    "sent_by" "uuid",
     "total_recipients" integer DEFAULT 0 NOT NULL,
     "total_sent" integer DEFAULT 0,
     "total_failed" integer DEFAULT 0,
@@ -538,7 +573,7 @@ CREATE TABLE IF NOT EXISTS "public"."post_revisions" (
     "metadata" "jsonb",
     "blocks" "jsonb" NOT NULL,
     "revision_number" integer NOT NULL,
-    "created_by" "uuid" NOT NULL,
+    "created_by" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"(),
     "change_summary" "text"
 );
@@ -832,6 +867,10 @@ CREATE OR REPLACE TRIGGER "on_post_publish" AFTER UPDATE OF "status" ON "public"
 
 
 
+CREATE OR REPLACE TRIGGER "on_profile_delete_safety" BEFORE DELETE ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."prevent_admin_deletion_safety"();
+
+
+
 CREATE OR REPLACE TRIGGER "on_profile_status_change" AFTER UPDATE OF "status" ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."check_user_active_status"();
 
 
@@ -855,12 +894,12 @@ ALTER TABLE ONLY "public"."contact_replies"
 
 
 ALTER TABLE ONLY "public"."contact_replies"
-    ADD CONSTRAINT "contact_replies_replied_by_fkey" FOREIGN KEY ("replied_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "contact_replies_replied_by_fkey" FOREIGN KEY ("replied_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
 ALTER TABLE ONLY "public"."contacts"
-    ADD CONSTRAINT "contacts_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "contacts_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -870,7 +909,7 @@ ALTER TABLE ONLY "public"."newsletter_campaigns"
 
 
 ALTER TABLE ONLY "public"."newsletter_campaigns"
-    ADD CONSTRAINT "newsletter_campaigns_sent_by_fkey" FOREIGN KEY ("sent_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "newsletter_campaigns_sent_by_fkey" FOREIGN KEY ("sent_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -890,7 +929,7 @@ ALTER TABLE ONLY "public"."post_blocks"
 
 
 ALTER TABLE ONLY "public"."post_revisions"
-    ADD CONSTRAINT "post_revisions_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "post_revisions_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -905,12 +944,12 @@ ALTER TABLE ONLY "public"."posts"
 
 
 ALTER TABLE ONLY "public"."posts"
-    ADD CONSTRAINT "posts_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "posts_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
 ALTER TABLE ONLY "public"."profiles"
-    ADD CONSTRAINT "profiles_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "profiles_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -920,7 +959,7 @@ ALTER TABLE ONLY "public"."profiles"
 
 
 ALTER TABLE ONLY "public"."system_settings"
-    ADD CONSTRAINT "system_settings_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "system_settings_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -1349,6 +1388,12 @@ GRANT ALL ON FUNCTION "public"."get_user_status_by_email"("_email" "text") TO "s
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."prevent_admin_deletion_safety"() TO "anon";
+GRANT ALL ON FUNCTION "public"."prevent_admin_deletion_safety"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."prevent_admin_deletion_safety"() TO "service_role";
 
 
 
