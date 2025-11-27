@@ -7,13 +7,20 @@ import { getPublicSettings } from "@/lib/public-settings";
 const Hero = async () => {
   // Fetch settings
   const settings = await getPublicSettings();
-  const videoUrl =
+
+  // 1. Get the base URL
+  const rawUrl =
     settings.home_hero_video_id || "https://www.youtube.com/embed/p4-USNtPYrY";
+
+  // 2. Append autoplay parameters
+  // We check if the URL already has query params ('?') to determine whether to add '&' or '?'
+  // mute=1 is required for autoplay to work in most browsers
+  const videoUrl = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}autoplay=1&mute=1&loop=1`;
 
   return (
     <div className="pt-16 bg-gradient-to-br from-[#008080] to-[#006666] text-white overflow-hidden relative">
       <div className="absolute inset-0 bg-black opacity-10"></div>
-      <Container className=" py-20 relative z-10">
+      <Container className="py-20 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
             <div className="inline-flex items-center bg-yellow-400 text-black px-4 py-2 rounded-full text-sm font-medium">
@@ -42,7 +49,7 @@ const Hero = async () => {
             </div>
           </div>
           <div className="relative">
-            <div className="absolute -inset-4  rounded-2xl opacity-20 blur"></div>
+            <div className="absolute -inset-4 rounded-2xl opacity-20 blur"></div>
             <div className="relative z-10 rounded-2xl shadow-2xl overflow-hidden transform">
               <iframe
                 className="w-full aspect-video"
