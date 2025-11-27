@@ -128,6 +128,14 @@ export async function deleteUser(userId: string) {
     return { success: false, message: authCheck.message };
   }
 
+  // ---------------------------------------------------------
+  // ✅ SAFETY CHECK: Prevent Self-Deletion
+  // ---------------------------------------------------------
+  if (userId === authCheck.userId) {
+    return { success: false, message: "You cannot delete your own account." };
+  }
+  // ---------------------------------------------------------
+
   const supabase = await createAdminClient();
 
   // Get user email *before* deleting, for the log message
